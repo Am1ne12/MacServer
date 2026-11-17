@@ -26,7 +26,12 @@
 </p>
 
 <p align="center">
+  <sub>macOS blocked the download? <a href="#macos-blocked-the-app"><strong>See the Gatekeeper workaround</strong></a>.</sub>
+</p>
+
+<p align="center">
   <a href="#installation"><strong>Install</strong></a> ·
+  <a href="#macos-blocked-the-app">Gatekeeper</a> ·
   <a href="#usage">Usage</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#troubleshooting">Troubleshooting</a>
@@ -92,7 +97,7 @@ MacServer fills that gap with a small macOS service and a menu bar icon.
 5. Allow MacServer in **System Settings > General > Login Items & Extensions** if macOS asks.
 6. The MacServer icon appears in the menu bar.
 
-> **Gatekeeper**: the app and installer are not notarized (no Apple Developer account). If macOS blocks the installer, **right-click > Open** on `Install MacServer.command`. You can also use **System Settings > Privacy & Security > Open Anyway**.
+> **macOS blocked the app?** This is expected for an unsigned app. See [macOS blocked the app](#macos-blocked-the-app) for the full workaround.
 
 The installer adds:
 
@@ -122,6 +127,67 @@ Build a DMG:
 ```
 
 The DMG is created in `dist/`.
+
+## macOS blocked the app?
+
+MacServer is ad-hoc signed and not notarized. macOS Gatekeeper blocks downloaded unsigned apps. This is expected and does not mean the app is malicious.
+
+You may need to approve **both** the installer and the app.
+
+### Use System Settings (Open Anyway)
+
+1. Double-click `Install MacServer.command` (or `MacServer.app`) once.
+2. When macOS says it cannot verify the app, click **Done**.
+3. Open **System Settings > Privacy & Security**.
+4. Scroll down to **Security**.
+5. Click **Open Anyway** next to the MacServer message.
+6. Enter your administrator password, then click **Open**.
+7. If macOS asks again for the other item, repeat these steps.
+
+If **Open Anyway** does not appear, try to open the blocked item again, then check **Privacy & Security** right away.
+
+### Remove the quarantine from the downloaded DMG
+
+```bash
+xattr -dr com.apple.quarantine ~/Downloads/MacServer-1.0.0.dmg
+open ~/Downloads/MacServer-1.0.0.dmg
+```
+
+Then double-click `Install MacServer.command`.
+
+### Download with curl (no quarantine)
+
+```bash
+curl -L -o ~/Downloads/MacServer-1.0.0.dmg \
+  https://github.com/Am1ne12/MacServer/releases/download/v1.0.0/MacServer-1.0.0.dmg
+open ~/Downloads/MacServer-1.0.0.dmg
+```
+
+Files downloaded from Terminal do not get the `com.apple.quarantine` attribute.
+
+### Install directly from Terminal
+
+This bypasses the blocked `Install MacServer.command`:
+
+```bash
+cd "/Volumes/MacServer 1.0.0"
+sudo .installer/install.sh
+```
+
+The installer removes the quarantine from `/Applications/MacServer.app`.
+
+### Build from source
+
+A locally built app is not quarantined:
+
+```bash
+git clone https://github.com/Am1ne12/MacServer.git
+cd MacServer
+./build.sh
+sudo ./install.sh
+```
+
+> **Do not disable Gatekeeper globally** with `sudo spctl --master-disable`. It lowers the security of your whole Mac.
 
 ## Usage
 
@@ -205,7 +271,7 @@ The server keeps running while the screen is locked. When you open the lid, macO
 
 The service runs as root, but it only executes fixed system commands and reads local flags. It opens no ports and makes no network calls.
 
-> The app is ad-hoc signed, not notarized. This is fine for personal use, but macOS may show a Gatekeeper warning on first launch.
+> The app is ad-hoc signed, not notarized. macOS may show a Gatekeeper warning on first launch; see [macOS blocked the app](#macos-blocked-the-app) if needed.
 
 ## Important notes
 
