@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Builds et artefacts
+build/
+dist/
+*.dmg
+*.pkg
+*.zip
+
+# Icônes générées
+app/AppIcon.iconset/
+
+# Journaux locaux
+*.log

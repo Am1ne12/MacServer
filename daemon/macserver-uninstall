@@ -1,0 +1,48 @@
+#!/bin/bash
+# Desinstalle MacServer et restaure la veille normale.
+
+set -u
+
+if [[ $EUID -ne 0 ]]; then
+    exec sudo "$0" "$@"
+fi
+
+CONSOLE_USER=$(stat -f%Su /dev/console 2>/dev/null || true)
+if [[ -n "$CONSOLE_USER" && "$CONSOLE_USER" != "root" ]]; then
+    CONSOLE_UID=$(id -u "$CONSOLE_USER" 2>/dev/null || true)
+    CONSOLE_HOME=$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+else
+    CONSOLE_USER=""
+    CONSOLE_UID=""
+    CONSOLE_HOME=""
+fi
+
+echo "Arret du service..."
+launchctl bootout system/com.am1ne.macserver.daemon 2>/dev/null || true
+
+if [[ -n "$CONSOLE_UID" ]]; then
+    launchctl bootout "gui/$CONSOLE_UID/com.am1ne.macserver.app" 2>/dev/null || true
+    launchctl asuser "$CONSOLE_UID" osascript -e 'tell application "MacServer" to quit' 2>/dev/null || true
+    pkill -x MacServer 2>/dev/null || true
+fi
+
+echo "Restauration de la veille macOS..."
+pmset -a disablesleep 0 2>/dev/null || true
+pmset -a acwake 0 2>/dev/null || true
+
+echo "Suppression des fichiers..."
+rm -f /Library/LaunchDaemons/com.am1ne.macserver.daemon.plist
+rm -f /usr/local/bin/macserver
+rm -rf /Applications/MacServer.app
+rm -rf /Users/Shared/MacServer
+rm -f /var/log/macserver.log /var/log/macserver.log.1
+
+if [[ -n "$CONSOLE_HOME" ]]; then
+    rm -f "$CONSOLE_HOME/Library/LaunchAgents/com.am1ne.macserver.app.plist"
+fi
+
+# Le script de desinstallation est supprime en dernier (il est en cours
+# d'execution, ce qui est sans danger sur macOS/Unix).
+rm -f /usr/local/libexec/macserver-uninstall
+
+echo "MacServer desinstalle. Veille normale restauree."
