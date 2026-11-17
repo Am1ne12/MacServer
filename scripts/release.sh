@@ -1,5 +1,5 @@
 #!/bin/bash
-# Construit un DMG installable pour MacServer.
+# Builds an installable MacServer DMG.
 # Usage: ./scripts/release.sh [version]
 set -euo pipefail
 
@@ -10,11 +10,11 @@ VERSION="${1:-1.0.0}"
 STAGE="$ROOT/dist/dmg"
 DMG="$ROOT/dist/MacServer-$VERSION.dmg"
 
-echo "== 1. Compilation =="
+echo "== 1. Building =="
 "$ROOT/build.sh"
 
 echo
-echo "== 2. Préparation du DMG $VERSION =="
+echo "== 2. Preparing DMG $VERSION =="
 rm -rf "$STAGE"
 mkdir -p "$STAGE/.installer"
 
@@ -35,42 +35,42 @@ sudo "$PWD/.installer/install.sh"
 STATUS=$?
 echo
 if [[ $STATUS -eq 0 ]]; then
-    echo "Installation terminée."
+    echo "Installation complete."
 else
-    echo "L'installation a échoué (code $STATUS)."
+    echo "Installation failed (code $STATUS)."
 fi
 echo
-read -n 1 -s -r -p "Appuie sur une touche pour fermer cette fenêtre..."
+read -n 1 -s -r -p "Press any key to close this window..."
 echo
 EOF
 chmod 0755 "$STAGE/Install MacServer.command"
 
-cat > "$STAGE/Lisez-moi.txt" <<'EOF'
-MacServer — installation
+cat > "$STAGE/Read Me.txt" <<'EOF'
+MacServer — Installation
 ========================
 
-1. Double-clique sur « Install MacServer.command ».
-2. Entre ton mot de passe administrateur.
-3. L'icône MacServer apparaît dans la barre des menus.
+1. Double-click "Install MacServer.command".
+2. Enter your administrator password.
+3. The MacServer icon appears in the menu bar.
 
-Si macOS bloque l'ouverture :
-- Clic droit sur « Install MacServer.command » > Ouvrir.
-- Ou Réglages Système > Confidentialité et sécurité > « Ouvrir quand même ».
+If macOS blocks the installer:
+- Right-click "Install MacServer.command" > Open.
+- Or System Settings > Privacy & Security > "Open Anyway".
 
-MacServer installe :
+MacServer installs:
 - /Applications/MacServer.app
-- un service d'arrière-plan (LaunchDaemon)
-- la commande /usr/local/bin/macserver
+- a background service (LaunchDaemon)
+- the /usr/local/bin/macserver command
 
-Désinstallation :
-- Menu de l'icône > « Désinstaller MacServer… »
-- ou : sudo /usr/local/libexec/macserver-uninstall
+Uninstall:
+- Icon menu > "Uninstall MacServer…"
+- or: sudo /usr/local/libexec/macserver-uninstall
 
-Attention : ne laisse pas un MacBook éveillé, capot fermé, dans une housse.
+Warning: do not leave a MacBook awake with the lid closed in a bag.
 EOF
 
 echo
-echo "== 3. Création du DMG =="
+echo "== 3. Creating DMG =="
 rm -f "$DMG"
 hdiutil create \
     -volname "MacServer $VERSION" \
@@ -80,8 +80,8 @@ hdiutil create \
     "$DMG"
 
 echo
-echo "DMG : $DMG"
+echo "DMG: $DMG"
 shasum -a 256 "$DMG"
 echo
-echo "Pour tester :"
+echo "To test:"
 echo "  hdiutil attach \"$DMG\""

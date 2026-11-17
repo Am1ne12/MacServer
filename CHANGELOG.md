@@ -2,16 +2,16 @@
 
 ## 1.0.0 — 2026-11-17
 
-Première version publique.
+First public release.
 
-- Mode serveur automatique sur secteur : veille système désactivée, capot fermé compris.
-- Comportement normal sur batterie : le Mac s'endort quand le capot se ferme.
-- Réveil au branchement du chargeur via `acwake`, puis maintien éveillé par le service.
-- Mode optionnel « serveur sur batterie » avec arrêt automatique à 20 %.
-- Verrouillage de l'écran à la fermeture du capot.
-- Icône dans la barre des menus : serveur secteur, portable/pause, serveur batterie, alerte.
-- Menu : pause/reprise, mode batterie, verrouillage immédiat, journal, désinstallation.
-- CLI `macserver` : `status`, `pause`, `resume`, `battery on|off`.
-- Service LaunchDaemon root, démarrage au boot, redémarrage automatique en cas d'arrêt.
-- Application universelle Apple Silicon + Intel.
-- Installeur DMG avec notice et désinstallation propre.
+- Automatic server mode on AC power: system sleep disabled, including with the lid closed.
+- Normal battery behavior: the Mac sleeps when the lid is closed.
+- Wake on charger connection via `acwake`, then kept awake by the service.
+- Optional "server on battery" mode with an automatic stop at 20%.
+- Screen lock when the lid is closed.
+- Menu bar icon states: server on AC, laptop/paused, server on battery, alert.
+- Menu: pause/resume, battery mode, lock screen now, log, uninstall.
+- `macserver` CLI: `status`, `pause`, `resume`, `battery on|off`.
+- Root LaunchDaemon, starts at boot, automatically restarts if it exits.
+- Universal app for Apple Silicon and Intel.
+- DMG installer with instructions and clean uninstall.

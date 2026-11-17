@@ -1,5 +1,5 @@
 #!/bin/bash
-# Desinstalle MacServer et restaure la veille normale.
+# Uninstalls MacServer and restores normal sleep.
 
 set -u
 
@@ -17,7 +17,7 @@ else
     CONSOLE_HOME=""
 fi
 
-echo "Arret du service..."
+echo "Stopping service..."
 launchctl bootout system/com.am1ne.macserver.daemon 2>/dev/null || true
 
 if [[ -n "$CONSOLE_UID" ]]; then
@@ -26,11 +26,11 @@ if [[ -n "$CONSOLE_UID" ]]; then
     pkill -x MacServer 2>/dev/null || true
 fi
 
-echo "Restauration de la veille macOS..."
+echo "Restoring normal macOS sleep..."
 pmset -a disablesleep 0 2>/dev/null || true
 pmset -a acwake 0 2>/dev/null || true
 
-echo "Suppression des fichiers..."
+echo "Removing files..."
 rm -f /Library/LaunchDaemons/com.am1ne.macserver.daemon.plist
 rm -f /usr/local/bin/macserver
 rm -rf /Applications/MacServer.app
@@ -41,8 +41,8 @@ if [[ -n "$CONSOLE_HOME" ]]; then
     rm -f "$CONSOLE_HOME/Library/LaunchAgents/com.am1ne.macserver.app.plist"
 fi
 
-# Le script de desinstallation est supprime en dernier (il est en cours
-# d'execution, ce qui est sans danger sur macOS/Unix).
+# The uninstall script removes itself last (it is currently running,
+# which is safe on macOS/Unix).
 rm -f /usr/local/libexec/macserver-uninstall
 
-echo "MacServer desinstalle. Veille normale restauree."
+echo "MacServer uninstalled. Normal sleep restored."

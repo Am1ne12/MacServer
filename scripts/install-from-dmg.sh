@@ -1,6 +1,6 @@
 #!/bin/bash
-# Installe MacServer depuis le DMG.
-# Ce script est copié dans .installer/install.sh du DMG.
+# Installs MacServer from the DMG.
+# This script is copied to .installer/install.sh inside the DMG.
 set -u
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -18,8 +18,8 @@ else
 fi
 
 if [[ -z "${TARGET_USER:-}" || "$TARGET_USER" == "root" ]]; then
-    echo "Impossible de trouver l'utilisateur connecte."
-    echo "Ouvre une session macOS, puis relance l'installation."
+    echo "Could not find the logged-in user."
+    echo "Log in to a macOS session, then run the installer again."
     exit 1
 fi
 
@@ -27,26 +27,26 @@ TARGET_UID=$(id -u "$TARGET_USER")
 TARGET_HOME=$(dscl . -read "/Users/$TARGET_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
 
 if [[ -z "${TARGET_HOME:-}" || ! -d "$TARGET_HOME" ]]; then
-    echo "Dossier personnel introuvable pour $TARGET_USER."
+    echo "Home directory not found for $TARGET_USER."
     exit 1
 fi
 
 if [[ ! -d "$APP_SRC" ]]; then
-    echo "MacServer.app est introuvable dans le DMG."
+    echo "MacServer.app was not found in the DMG."
     exit 1
 fi
 
-echo "Utilisateur : $TARGET_USER"
+echo "User: $TARGET_USER"
 echo
 
-echo "== Arret de l'ancienne version =="
+echo "== Stopping previous version =="
 launchctl bootout system/com.am1ne.macserver.daemon 2>/dev/null || true
 launchctl bootout "gui/$TARGET_UID/com.am1ne.macserver.app" 2>/dev/null || true
 launchctl asuser "$TARGET_UID" osascript -e 'tell application "MacServer" to quit' 2>/dev/null || true
 pkill -x MacServer 2>/dev/null || true
 pmset -a disablesleep 0 2>/dev/null || true
 
-echo "== Installation de l'application =="
+echo "== Installing application =="
 rm -rf /Applications/MacServer.app
 ditto "$APP_SRC" /Applications/MacServer.app
 chown -R root:wheel /Applications/MacServer.app
@@ -55,7 +55,7 @@ if ! codesign --verify --deep --strict /Applications/MacServer.app >/dev/null 2>
     codesign --force --deep --sign - /Applications/MacServer.app
 fi
 
-echo "== Installation du service =="
+echo "== Installing service =="
 mkdir -p /usr/local/bin /usr/local/libexec
 install -m 0755 -o root -g wheel "$SCRIPT_DIR/macserver" /usr/local/bin/macserver
 install -m 0755 -o root -g wheel "$SCRIPT_DIR/macserver-uninstall" /usr/local/libexec/macserver-uninstall
@@ -71,14 +71,14 @@ touch /var/log/macserver.log
 chown root:wheel /var/log/macserver.log
 chmod 644 /var/log/macserver.log
 
-echo "== Activation du reveil au branchement =="
+echo "== Enabling wake on charger =="
 if pmset -a acwake 1 >> /var/log/macserver.log 2>&1; then
-    echo "  acwake active."
+    echo "  acwake enabled."
 else
-    echo "  acwake refuse par ce Mac (le reveil au branchement peut ne pas marcher)."
+    echo "  acwake refused by this Mac (wake on charger may not work)."
 fi
 
-echo "== Demarrage du service =="
+echo "== Starting service =="
 for _ in {1..20}; do
     if ! launchctl print system/com.am1ne.macserver.daemon >/dev/null 2>&1; then
         break
@@ -93,20 +93,20 @@ for attempt in 1 2 3; do
         BOOTSTRAPPED=1
         break
     fi
-    echo "  chargement du service : tentative $attempt echouee, nouvel essai..."
+    echo "  loading service: attempt $attempt failed, retrying..."
     sleep 2
 done
 
 if [[ "$BOOTSTRAPPED" -ne 1 ]]; then
-    echo "ERREUR : impossible de charger le service."
-    echo "Verifie /var/log/macserver.log."
+    echo "ERROR: could not load service."
+    echo "Check /var/log/macserver.log."
     exit 1
 fi
 
 launchctl enable system/com.am1ne.macserver.daemon 2>/dev/null || true
 launchctl kickstart -k system/com.am1ne.macserver.daemon 2>/dev/null || true
 
-echo "== Installation de l'icone =="
+echo "== Installing menu bar icon =="
 mkdir -p "$TARGET_HOME/Library/LaunchAgents"
 install -m 0644 -o "$TARGET_USER" -g staff \
     "$SCRIPT_DIR/com.am1ne.macserver.app.plist" \
@@ -132,12 +132,12 @@ echo "== Verification =="
 /usr/local/bin/macserver status 2>&1 | sed 's/^/  /'
 
 echo
-echo "Notes :"
-echo "  - Sur secteur, l'icone est verte ; sur batterie normale, elle affiche pause."
-echo "  - Si l'icone n'apparait pas, ta barre de menus est peut-etre pleine."
-echo "    Masque quelques icones ou utilise un gestionnaire de barre de menus."
-echo "  - macOS peut demander d'autoriser MacServer dans Reglages > General >"
-echo "    Ouverture de session et extensions."
-echo "  - Ne laisse pas le Mac eveille dans une housse ou sur un lit."
+echo "Notes:"
+echo "  - On AC power, the icon is green; on normal battery, it shows pause."
+echo "  - If the icon does not appear, your menu bar may be full."
+echo "    Hide a few icons or use a menu bar manager."
+echo "  - macOS may ask you to allow MacServer in System Settings > General >"
+echo "    Login Items & Extensions."
+echo "  - Do not leave the Mac awake in a bag or on a bed."
 echo
-echo "MacServer est installe."
+echo "MacServer is installed."

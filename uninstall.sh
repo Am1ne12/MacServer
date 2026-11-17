@@ -1,5 +1,5 @@
 #!/bin/bash
-# Wrapper de desinstallation depuis le dossier du projet.
+# Uninstall wrapper from the project folder.
 set -u
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)

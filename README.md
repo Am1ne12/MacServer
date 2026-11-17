@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Am1ne12/MacServer/releases/latest"><img src="https://img.shields.io/github/v/release/Am1ne12/MacServer?display_name=tag&sort=semver" alt="Dernière version"></a>
+  <a href="https://github.com/Am1ne12/MacServer/releases/latest"><img src="https://img.shields.io/github/v/release/Am1ne12/MacServer?display_name=tag&sort=semver" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Universal-arm64%20%7C%20x86__64-2ea44f" alt="Universal">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
@@ -12,86 +12,101 @@
 <h1 align="center">MacServer</h1>
 
 <p align="center">
-  Transforme ton MacBook en serveur quand il est branché.<br>
-  Sur batterie, il redevient un portable normal.
+  Turn your MacBook into a server while it is plugged in.<br>
+  On battery, it goes back to being a normal laptop.
 </p>
 
 <p align="center">
-  <a href="#installation"><strong>Installer</strong></a> ·
-  <a href="#utilisation">Utilisation</a> ·
-  <a href="#comment-ça-marche">Fonctionnement</a> ·
-  <a href="#dépannage">Dépannage</a>
+  <a href="https://github.com/Am1ne12/MacServer/releases/download/v1.0.0/MacServer-1.0.0.dmg">
+    <img src="https://img.shields.io/badge/Download_MacServer-1.0.0-2ea44f?style=for-the-badge&logo=apple&logoColor=white" alt="Download MacServer 1.0.0">
+  </a>
+  <a href="https://github.com/Am1ne12/MacServer/releases/latest">
+    <img src="https://img.shields.io/badge/Release_Notes-555555?style=for-the-badge" alt="Release notes">
+  </a>
+</p>
+
+<p align="center">
+  <a href="#installation"><strong>Install</strong></a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
 </p>
 
 ---
 
-## Pourquoi MacServer ?
+## Why MacServer?
 
-Un MacBook est un excellent petit serveur : il est silencieux, économe et assez puissant pour faire tourner un serveur de développement, un agent, un serveur de fichiers ou des téléchargements.
+A MacBook makes a great small server: it is quiet, power-efficient and powerful enough for a development server, an agent, a file server or downloads.
 
-Mais macOS n'a pas de mode « serveur uniquement sur secteur » :
+But macOS has no built-in "server only on AC power" mode:
 
-- `caffeinate` ne bloque pas la veille quand le capot est fermé de façon fiable ;
-- `pmset -a disablesleep 1` fonctionne, mais reste actif même sur batterie ;
-- il n'existe pas de réglage natif pour « reste éveillé sur secteur, dors normalement sur batterie ».
+- `caffeinate` does not reliably prevent sleep when the lid is closed;
+- `pmset -a disablesleep 1` works, but it also applies on battery;
+- there is no native setting for "stay awake on AC power, sleep normally on battery".
 
-MacServer comble ce manque avec un petit service macOS et une icône dans la barre des menus.
+MacServer fills that gap with a small macOS service and a menu bar icon.
 
-## Fonctionnalités
+## Features
 
-- **Mode serveur automatique sur secteur** : la veille système est désactivée, même capot fermé. L'écran peut s'éteindre, le réseau reste actif.
-- **Comportement normal sur batterie** : MacServer remet la veille macOS normale et endort le Mac si le capot est fermé.
-- **Réveil au branchement** : `acwake` demande à macOS de se réveiller quand le chargeur est connecté ; le service le maintient ensuite éveillé.
-- **Mode serveur sur batterie optionnel** : le Mac reste éveillé jusqu'à 20 %, puis s'endort pour préserver la batterie.
-- **Verrouillage de l'écran** : à la fermeture du capot, l'écran s'éteint et la session se verrouille. Le serveur continue de tourner.
-- **Icône toujours visible** : serveur secteur, portable/pause, serveur batterie, alerte.
-- **Menu complet** : pause/reprise, mode batterie, verrouillage immédiat, journal, désinstallation.
-- **CLI `macserver`** : `status`, `pause`, `resume`, `battery on|off`.
-- **Service root au boot** : LaunchDaemon avec redémarrage automatique.
-- **Aucune dépendance externe** : Swift/AppKit pour l'icône, zsh et `pmset` pour le service.
-- **Binaire universel** : Apple Silicon et Intel.
-- **Désinstallation propre** : restaure la veille macOS et supprime tous les fichiers.
+- **Automatic server mode on AC power**: system sleep is disabled, even with the lid closed. The display can turn off while the network stays active.
+- **Normal battery behavior**: MacServer restores normal macOS sleep and puts the Mac to sleep when the lid is closed.
+- **Wake on charger connection**: `acwake` asks macOS to wake when the charger is connected; the service then keeps it awake.
+- **Optional battery server mode**: the Mac stays awake on battery until 20%, then goes to sleep to protect the battery.
+- **Screen lock**: closing the lid turns off the display and locks the session. The server keeps running.
+- **Always-visible icon**: server on AC, laptop/paused, server on battery, alert.
+- **Full menu**: pause/resume, battery mode, lock screen now, log, uninstall.
+- **`macserver` CLI**: `status`, `pause`, `resume`, `battery on|off`.
+- **Root LaunchDaemon**: starts at boot and restarts automatically if it exits.
+- **No external dependencies**: Swift/AppKit for the icon, zsh and `pmset` for the service.
+- **Universal binary**: Apple Silicon and Intel.
+- **Clean uninstall**: restores normal macOS sleep and removes every file.
 
-## Aperçu
+## Preview
 
 <p align="center">
-  <img src="docs/images/icon-states.png" alt="Les 3 modes + l'alerte" width="90%">
+  <img src="docs/images/icon-states.png" alt="3 modes + alert" width="90%">
 </p>
 
 <p align="center">
-  <img src="docs/images/menu-preview.png" alt="Aperçu du menu MacServer" width="62%">
+  <img src="docs/images/menu-preview.png" alt="MacServer menu preview" width="62%">
 </p>
 
 <p align="center">
-  <em>Aperçu de l'interface. Les visuels sont générés à partir des icônes réelles de l'app.</em>
+  <em>Interface preview. The visuals are generated from the app's real icon states.</em>
 </p>
 
 ## Installation
 
-### Téléchargement (recommandé)
+### Download (recommended)
 
-1. Télécharge le DMG depuis **[Releases](https://github.com/Am1ne12/MacServer/releases/latest)**.
-2. Ouvre le DMG.
-3. Double-clique sur **`Install MacServer.command`**.
-4. Entre ton mot de passe administrateur.
-5. Autorise MacServer dans **Réglages Système > Général > Ouverture de session et extensions** si macOS le demande.
-6. L'icône MacServer apparaît dans la barre des menus.
+<p align="center">
+  <a href="https://github.com/Am1ne12/MacServer/releases/download/v1.0.0/MacServer-1.0.0.dmg">
+    <img src="https://img.shields.io/badge/Download_MacServer-1.0.0-2ea44f?style=for-the-badge&logo=apple&logoColor=white" alt="Download MacServer 1.0.0">
+  </a>
+</p>
 
-> **Gatekeeper** : l'application et l'installeur ne sont pas notariés (pas de compte Apple Developer). Si macOS bloque l'ouverture, fais un **clic droit > Ouvrir** sur `Install MacServer.command`. Tu peux aussi passer par **Réglages Système > Confidentialité et sécurité > Ouvrir quand même**.
+1. Download the DMG above.
+2. Open the DMG.
+3. Double-click **`Install MacServer.command`**.
+4. Enter your administrator password.
+5. Allow MacServer in **System Settings > General > Login Items & Extensions** if macOS asks.
+6. The MacServer icon appears in the menu bar.
 
-L'installation installe :
+> **Gatekeeper**: the app and installer are not notarized (no Apple Developer account). If macOS blocks the installer, **right-click > Open** on `Install MacServer.command`. You can also use **System Settings > Privacy & Security > Open Anyway**.
+
+The installer adds:
 
 - `/Applications/MacServer.app`
 - `/usr/local/bin/macserver`
 - `/usr/local/libexec/macserver-uninstall`
 - `/Library/LaunchDaemons/com.am1ne.macserver.daemon.plist`
 - `~/Library/LaunchAgents/com.am1ne.macserver.app.plist`
-- `/Users/Shared/MacServer/` (état et drapeaux)
+- `/Users/Shared/MacServer/` (state and flags)
 - `/var/log/macserver.log`
 
-### Depuis les sources
+### Build from source
 
-Prérequis : macOS 13 ou plus récent, Xcode Command Line Tools (`xcode-select --install`).
+Requirements: macOS 13 or later, Xcode Command Line Tools (`xcode-select --install`).
 
 ```bash
 git clone https://github.com/Am1ne12/MacServer.git
@@ -100,124 +115,124 @@ cd MacServer
 sudo ./install.sh
 ```
 
-Pour construire un DMG :
+Build a DMG:
 
 ```bash
 ./scripts/release.sh 1.0.0
 ```
 
-Le DMG est créé dans `dist/`.
+The DMG is created in `dist/`.
 
-## Utilisation
+## Usage
 
-### Les icônes
+### Icon states
 
-| Icône | État | Comportement |
+| Icon | State | Behavior |
 |---|---|---|
-| Carré **vert** + éclair | Serveur sur secteur | Veille désactivée, capot ouvert ou fermé |
-| Carré **orange** + pause | Portable normal / en pause | Veille macOS normale |
-| Carré **orange** + éclair | Serveur sur batterie | Éveillé jusqu'à 20 %, puis veille |
-| Carré **rouge** + `!` | Alerte | Service arrêté ou état incohérent |
+| **Green** square + bolt | Server on AC power | Sleep disabled, lid open or closed |
+| **Orange** square + pause | Laptop / paused | Normal macOS sleep |
+| **Orange** square + bolt | Server on battery | Awake until 20%, then sleep |
+| **Red** square + `!` | Alert | Service stopped or inconsistent state |
 
-L'icône MacServer est toujours visible. Si elle n'apparaît pas, ta barre des menus est probablement pleine : masque quelques icônes ou utilise un gestionnaire de barre de menus.
+The MacServer icon is always visible. If it does not appear, your menu bar is probably full: hide a few icons or use a menu bar manager.
 
-### Le menu
+### Menu
 
-- **Mettre en pause / Reprendre** : revient temporairement au comportement normal. Le menu pause n'apparaît que lorsque le Mac est en mode serveur.
-- **Rester éveillé sur batterie (max 20 %)** : mode serveur sur batterie, désactivé par défaut. Le Mac reste éveillé jusqu'à 20 %, puis s'endort.
-- **Verrouiller l'écran maintenant** : éteint l'écran et verrouille la session immédiatement. Le service continue de tourner.
-- **Ouvrir le journal** : ouvre `/var/log/macserver.log`.
-- **Désinstaller MacServer…** : arrête le service, restaure la veille normale et supprime l'application.
-- **Quitter l'icône** : ferme seulement l'icône ; le service continue de tourner.
+- **Pause Server / Resume Server**: temporarily restore normal behavior. The pause item only appears while the Mac is in server mode.
+- **Stay Awake on Battery (max 20%)**: battery server mode, off by default. The Mac stays awake until 20%, then sleeps.
+- **Lock Screen Now**: turns off the display and locks the session immediately. The service keeps running.
+- **Open Log**: opens `/var/log/macserver.log`.
+- **Uninstall MacServer…**: stops the service, restores normal sleep and removes the app.
+- **Quit Icon**: closes only the icon; the service keeps running.
 
-### Ligne de commande
-
-```bash
-macserver status                 # état complet
-macserver pause                  # mettre le serveur en pause
-macserver resume                 # reprendre
-macserver battery on             # serveur sur batterie jusqu'à 20 %
-macserver battery off            # désactiver le mode batterie
-```
-
-Diagnostic :
+### Command line
 
 ```bash
-pmset -g | grep SleepDisabled    # 1 = veille désactivée
-pmset -g ps                      # source d'alimentation
-tail -f /var/log/macserver.log   # journal du service
+macserver status                 # full status
+macserver pause                  # pause the server
+macserver resume                 # resume
+macserver battery on             # server on battery until 20%
+macserver battery off            # disable battery mode
 ```
 
-## Comment ça marche
+Diagnostics:
 
-MacServer est composé de deux parties :
+```bash
+pmset -g | grep SleepDisabled    # 1 = sleep disabled
+pmset -g ps                      # power source
+tail -f /var/log/macserver.log   # service log
+```
 
-1. **`MacServer.app`** : une petite app AppKit dans la barre des menus. Elle lit un fichier d'état et affiche l'icône correspondante.
-2. **`com.am1ne.macserver.daemon`** : un LaunchDaemon root qui applique la politique de veille.
+## How it works
 
-Le service vérifie l'état environ une fois par seconde :
+MacServer has two parts:
 
-- **Sur secteur** → `pmset -a disablesleep 1`. C'est le seul réglage macOS fiable pour empêcher la veille quand le capot est fermé.
-- **Sur batterie** → `pmset -a disablesleep 0`. Si le capot est fermé, `pmset sleepnow` endort immédiatement le Mac.
-- **Mode batterie** → `disablesleep 1` jusqu'à 20 %, puis retour à la veille normale.
-- **Au branchement** → `acwake` réveille le Mac, puis le service applique `disablesleep 1` et maintient brièvement une assertion `caffeinate -s` pour éviter une re-veille immédiate.
-- **À la fermeture du capot** → `pmset displaysleepnow` éteint l'écran pour déclencher le verrouillage macOS.
-- **À l'arrêt ou à la désinstallation** → `disablesleep 0` est restauré.
+1. **`MacServer.app`**: a small AppKit menu bar app. It reads a state file and displays the matching icon.
+2. **`com.am1ne.macserver.daemon`**: a root LaunchDaemon that applies the sleep policy.
 
-L'app et le service communiquent par un petit fichier d'état dans `/Users/Shared/MacServer/status`. Aucune connexion réseau, aucun démon externe.
+The service checks the state about once per second:
 
-## Mode serveur sur batterie
+- **On AC power** → `pmset -a disablesleep 1`. This is the only reliable macOS setting that prevents sleep with the lid closed.
+- **On battery** → `pmset -a disablesleep 0`. If the lid is closed, `pmset sleepnow` puts the Mac to sleep immediately.
+- **Battery mode** → `disablesleep 1` until 20%, then normal sleep.
+- **On charger connection** → `acwake` wakes the Mac, then the service applies `disablesleep 1` and briefly holds a `caffeinate -s` assertion to avoid going back to sleep immediately.
+- **On lid close** → `pmset displaysleepnow` turns off the display to trigger macOS screen locking.
+- **On stop or uninstall** → `disablesleep 0` is restored.
 
-Par défaut, MacServer ne modifie rien sur batterie : le Mac s'endort normalement.
+The app and the service communicate through a small state file in `/Users/Shared/MacServer/status`. No network connection, no external daemon.
 
-Si tu veux qu'il continue à servir après débranchement, active **« Rester éveillé sur batterie (max 20 %) »** dans le menu. Tu peux aussi le faire en Terminal :
+## Battery server mode
+
+By default, MacServer does nothing on battery: the Mac sleeps normally.
+
+If you want it to keep serving after unplugging, enable **"Stay Awake on Battery (max 20%)"** in the menu. You can also use the CLI:
 
 ```bash
 macserver battery on
 ```
 
-Le Mac reste éveillé jusqu'à 20 %, puis s'endort pour ne pas vider la batterie. Ce mode consomme de la batterie et produit de la chaleur : garde le Mac sur une surface ventilée et ne le mets pas dans une housse.
+The Mac stays awake until 20%, then sleeps to avoid draining the battery. This mode uses battery power and produces heat: keep the Mac on a ventilated surface and never put it in a bag.
 
-## Verrouillage et sécurité
+## Screen lock and security
 
-Quand le capot se ferme, le service éteint l'écran. macOS verrouille alors la session si ce réglage est actif :
+When the lid closes, the service turns off the display. macOS then locks the session if this setting is enabled:
 
-**Réglages Système > Écran verrouillé > Exiger un mot de passe après le début de l'économiseur d'écran ou la désactivation de l'écran > Immédiatement.**
+**System Settings > Lock Screen > Require password after screen saver begins or display is turned off > Immediately.**
 
-Le serveur continue de tourner pendant que l'écran est verrouillé. Quand tu ouvres le capot, macOS demande ton mot de passe ; les services réseau restent accessibles.
+The server keeps running while the screen is locked. When you open the lid, macOS asks for your password; network services remain reachable.
 
-**FileVault** est indépendant de MacServer. S'il est activé, un redémarrage demandera ton mot de passe avant que le service puisse repartir. Pour un serveur vraiment headless, il faut soit désactiver FileVault, soit accepter un déverrouillage manuel après chaque redémarrage.
+**FileVault** is independent of MacServer. If it is enabled, a reboot will require your password before the service can start again. For a truly headless server, either disable FileVault or accept a manual unlock after each reboot.
 
-Le service tourne en root, mais n'exécute que des commandes système fixes et ne lit que des drapeaux locaux. Il n'ouvre aucun port et ne fait aucun appel réseau.
+The service runs as root, but it only executes fixed system commands and reads local flags. It opens no ports and makes no network calls.
 
-> L'app est signée ad hoc, pas notariée. C'est suffisant pour un usage personnel, mais macOS peut afficher un avertissement Gatekeeper au premier lancement.
+> The app is ad-hoc signed, not notarized. This is fine for personal use, but macOS may show a Gatekeeper warning on first launch.
 
-## Points importants
+## Important notes
 
-- **Chaleur** : ne jamais laisser un MacBook éveillé, capot fermé, dans une housse, un sac ou sur un lit. Pose-le sur une surface dure et ventilée.
-- **`disablesleep` n'est pas documenté par Apple** et peut changer avec une future version de macOS. Le service vérifie son état et écrit une erreur dans le journal si la commande échoue.
-- **`acwake` dépend du matériel**. Sur certains Mac Apple Silicon, le réveil au branchement peut ne pas fonctionner. Le mode serveur sur batterie reste disponible comme solution de secours.
-- **Conflit** : si une autre application (Amphetamine, KeepingYouAwake, etc.) modifie `SleepDisabled`, les deux outils peuvent se battre. Quitte les autres outils de veille.
-- **Barre des menus pleine** : macOS peut cacher l'icône si la barre est saturée. Masque quelques icônes ou utilise un gestionnaire de barre de menus.
-- **Redémarrage après coupure** : pour que le Mac redémarre automatiquement après une coupure de courant :
+- **Heat**: never leave a MacBook awake with the lid closed in a bag, sleeve or on a bed. Keep it on a hard, ventilated surface.
+- **`disablesleep` is not documented by Apple** and may change in a future macOS release. The service checks its state and writes an error to the log if the command fails.
+- **`acwake` depends on the hardware**. On some Apple Silicon Macs, wake-on-charger may not work. Battery server mode remains available as a fallback.
+- **Conflicts**: if another app (Amphetamine, KeepingYouAwake, etc.) changes `SleepDisabled`, the two tools may fight. Quit other keep-awake apps.
+- **Full menu bar**: macOS may hide the icon if the menu bar is crowded. Hide a few icons or use a menu bar manager.
+- **Restart after power loss**: to make the Mac restart automatically after a power failure:
   ```bash
   sudo pmset -c autorestart 1
   ```
 
-## Dépannage
+## Troubleshooting
 
-### L'icône n'apparaît pas
+### The icon does not appear
 
-La barre des menus est peut-être pleine. Vérifie que l'app tourne :
+Your menu bar may be full. Check that the app is running:
 
 ```bash
 pgrep -fl MacServer
 macserver status
 ```
 
-Si le service répond mais que l'icône est absente, masque quelques icônes de la barre des menus ou utilise un gestionnaire comme Ice.
+If the service responds but the icon is missing, hide a few menu bar icons or use a menu bar manager such as Ice.
 
-### `SleepDisabled` reste à 0 sur secteur
+### `SleepDisabled` stays at 0 on AC power
 
 ```bash
 macserver status
@@ -225,51 +240,51 @@ tail -20 /var/log/macserver.log
 pmset -g | grep SleepDisabled
 ```
 
-Vérifie que le service est chargé :
+Check that the service is loaded:
 
 ```bash
 launchctl print system/com.am1ne.macserver.daemon
 ```
 
-### Le Mac s'endort quand même capot fermé
+### The Mac still sleeps with the lid closed
 
 ```bash
 pmset -g | grep SleepDisabled
 pmset -g log | grep -E "Clamshell|Sleep" | tail -20
 ```
 
-`SleepDisabled` doit être à `1` sur secteur. Si ce n'est pas le cas, réinstalle l'app ou consulte le journal.
+`SleepDisabled` must be `1` on AC power. If it is not, reinstall the app or check the log.
 
-### Le réveil au branchement ne marche pas
+### Wake on charger does not work
 
-`acwake` n'est pas supporté de façon fiable sur tous les Mac. Active le mode serveur sur batterie si tu as besoin que le Mac reste disponible après débranchement.
+`acwake` is not reliably supported on every Mac. Enable battery server mode if you need the Mac to stay available after unplugging.
 
-### Réinstaller
+### Reinstall
 
-Télécharge le DMG depuis [Releases](https://github.com/Am1ne12/MacServer/releases/latest), ou depuis les sources :
+Download the DMG from [Releases](https://github.com/Am1ne12/MacServer/releases/latest), or build from source:
 
 ```bash
 ./build.sh
 sudo ./install.sh
 ```
 
-## Désinstallation
+## Uninstall
 
-Depuis l'icône : **Désinstaller MacServer…**
+From the icon: **Uninstall MacServer…**
 
-Ou en Terminal :
+Or in Terminal:
 
 ```bash
 sudo /usr/local/libexec/macserver-uninstall
 ```
 
-La désinstallation :
+The uninstaller:
 
-- arrête le service et l'icône ;
-- remet `disablesleep 0` et `acwake 0` ;
-- supprime le LaunchDaemon, le LaunchAgent, l'app, la CLI, l'état et le journal.
+- stops the service and the icon;
+- restores `disablesleep 0` and `acwake 0`;
+- removes the LaunchDaemon, LaunchAgent, app, CLI, state and log.
 
-## Structure du projet
+## Project structure
 
 ```text
 MacServer/
@@ -299,33 +314,23 @@ MacServer/
 └── LICENSE
 ```
 
-## Contribuer
+## Contributing
 
-Les issues et pull requests sont les bienvenues.
+Issues and pull requests are welcome.
 
-- Teste sur macOS 13 ou plus récent.
-- Lance `./build.sh` avant de proposer une modification.
-- Garde le service petit et sans dépendance externe.
-- Pour les changements de comportement, explique le cas d'usage dans la PR.
+- Test on macOS 13 or later.
+- Run `./build.sh` before submitting a change.
+- Keep the service small and dependency-free.
+- For behavior changes, explain the use case in the PR.
 
-## Licence
+## License
 
-MIT — voir [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
 
-MacServer n'est pas affilié à Apple. Utilise-le à tes propres risques.
-
----
-
-## English summary
-
-MacServer is a small macOS menu bar app and LaunchDaemon that keeps your MacBook awake as a server **only while it is plugged in**. On battery, it restores normal macOS sleep behavior. It also supports an optional battery server mode (until 20%), automatic screen locking when the lid closes, and wake-on-charger via `acwake`.
-
-Built with Swift/AppKit and a small zsh daemon using `pmset`. Universal binary for Apple Silicon and Intel, macOS 13+.
-
-Download the latest DMG from [Releases](https://github.com/Am1ne12/MacServer/releases/latest).
+MacServer is not affiliated with Apple. Use it at your own risk.
 
 ---
 
 <p align="center">
-  Fait avec Swift, AppKit et <code>pmset</code>.
+  Built with Swift, AppKit and <code>pmset</code>.
 </p>

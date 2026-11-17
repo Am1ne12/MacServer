@@ -61,7 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
 
         pauseMenuItem = NSMenuItem(
-            title: "Mettre en pause",
+            title: "Pause Server",
             action: #selector(togglePause),
             keyEquivalent: ""
         )
@@ -69,18 +69,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(pauseMenuItem)
 
         batteryMenuItem = NSMenuItem(
-            title: "Rester éveillé sur batterie (max 20 %)",
+            title: "Stay Awake on Battery (max 20%)",
             action: #selector(toggleBattery),
             keyEquivalent: ""
         )
         batteryMenuItem.target = self
-        batteryMenuItem.toolTip = "Garde le Mac éveillé sur batterie jusqu'à 20 %. Il consommera la batterie et chauffera."
+        batteryMenuItem.toolTip = "Keeps the Mac awake on battery until 20%. It will drain the battery and get warm."
         menu.addItem(batteryMenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
         let lockItem = NSMenuItem(
-            title: "Verrouiller l'écran maintenant",
+            title: "Lock Screen Now",
             action: #selector(lockScreen),
             keyEquivalent: "l"
         )
@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(lockItem)
 
         let logItem = NSMenuItem(
-            title: "Ouvrir le journal",
+            title: "Open Log",
             action: #selector(openLog),
             keyEquivalent: ""
         )
@@ -96,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(logItem)
 
         let uninstallItem = NSMenuItem(
-            title: "Désinstaller MacServer…",
+            title: "Uninstall MacServer…",
             action: #selector(uninstall),
             keyEquivalent: ""
         )
@@ -106,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(
-            title: "Quitter l'icône (le service continue)",
+            title: "Quit Icon (service keeps running)",
             action: #selector(quit),
             keyEquivalent: "q"
         )
@@ -129,8 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             applyState(
                 icon: "exclamationmark",
                 color: .systemRed,
-                title: "Service arrêté",
-                detail: "Le service MacServer ne répond pas.",
+                title: "Service Stopped",
+                detail: "The MacServer service is not responding.",
                 paused: pausedFlag
             )
             return
@@ -157,8 +157,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             applyState(
                 icon: "exclamationmark",
                 color: .systemRed,
-                title: "Service arrêté",
-                detail: "Le service MacServer ne répond pas.",
+                title: "Service Stopped",
+                detail: "The MacServer service is not responding.",
                 paused: pausedFlag
             )
             return
@@ -174,8 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             applyState(
                 icon: "pause.fill",
                 color: .systemOrange,
-                title: "En pause",
-                detail: "La veille fonctionne normalement.",
+                title: "Paused",
+                detail: "Sleep behaves normally.",
                 paused: true
             )
         } else if power == "AC" {
@@ -183,16 +183,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 applyState(
                     icon: "bolt.fill",
                     color: .systemGreen,
-                    title: "Actif — secteur",
-                    detail: "Le Mac reste éveillé, capot ouvert ou fermé.",
+                    title: "Active — AC Power",
+                    detail: "The Mac stays awake, lid open or closed.",
                     paused: false
                 )
             } else {
                 applyState(
                     icon: "exclamationmark",
                     color: .systemRed,
-                    title: "Erreur — secteur",
-                    detail: "Le service n'a pas pu désactiver la veille.",
+                    title: "Error — AC Power",
+                    detail: "The service could not disable sleep.",
                     paused: false
                 )
             }
@@ -201,24 +201,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 applyState(
                     icon: "bolt.fill",
                     color: .systemOrange,
-                    title: "Serveur — batterie \(battery) %",
-                    detail: "Éveillé sur batterie jusqu'à 20 %.",
+                    title: "Server — Battery \(battery)%",
+                    detail: "Awake on battery until 20%.",
                     paused: false
                 )
             } else if !sleepDisabled {
                 applyState(
                     icon: "pause.fill",
                     color: .systemOrange,
-                    title: "Normal — batterie \(battery) %",
-                    detail: "Le Mac n'est pas en mode serveur.",
+                    title: "Normal — Battery \(battery)%",
+                    detail: "The Mac is not in server mode.",
                     paused: true
                 )
             } else {
                 applyState(
                     icon: "exclamationmark",
                     color: .systemRed,
-                    title: "Erreur — batterie",
-                    detail: "La veille est encore désactivée sur batterie.",
+                    title: "Error — Battery",
+                    detail: "Sleep is still disabled on battery.",
                     paused: false
                 )
             }
@@ -226,8 +226,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             applyState(
                 icon: "exclamationmark",
                 color: .systemRed,
-                title: "État inconnu",
-                detail: "Alimentation non reconnue.",
+                title: "Unknown State",
+                detail: "Power source not recognized.",
                 paused: pausedFlag
             )
         }
@@ -239,7 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.toolTip = "MacServer — \(title)"
         statusMenuItem.title = "MacServer — \(title)"
         detailMenuItem.title = detail
-        pauseMenuItem.title = paused ? "Reprendre le mode serveur" : "Mettre en pause"
+        pauseMenuItem.title = paused ? "Resume Server" : "Pause Server"
         statusItem.isVisible = visible
     }
 
@@ -299,7 +299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             ensureStateDir()
             if !FileManager.default.createFile(atPath: pausePath, contents: Data()) {
-                showError("Impossible de mettre MacServer en pause.")
+                showError("Could not pause MacServer.")
             }
         }
         refresh()
@@ -314,18 +314,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let alert = NSAlert()
-        alert.messageText = "Rester éveillé sur batterie ?"
-        alert.informativeText = "Le Mac restera éveillé jusqu'à 20 % de batterie, même capot fermé. Il consommera la batterie et chauffera. Ne le laissez pas dans une housse."
+        alert.messageText = "Stay awake on battery?"
+        alert.informativeText = "The Mac will stay awake until 20% battery, even with the lid closed. It will drain the battery and get warm. Do not put it in a bag."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Activer")
-        alert.addButton(withTitle: "Annuler")
+        alert.addButton(withTitle: "Enable")
+        alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
         ensureStateDir()
         if !FileManager.default.createFile(atPath: batteryPath, contents: Data()) {
-            showError("Impossible d'activer le mode batterie.")
+            showError("Could not enable battery mode.")
         }
         refresh()
     }
@@ -333,13 +333,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func lockScreen() {
         ensureStateDir()
         if !FileManager.default.createFile(atPath: lockPath, contents: Data()) {
-            showError("Impossible de demander le verrouillage de l'écran.")
+            showError("Could not request screen lock.")
         }
     }
 
     @objc private func openLog() {
         if !FileManager.default.fileExists(atPath: logPath) {
-            showError("Le journal est vide pour le moment.")
+            showError("The log is empty for now.")
             return
         }
         NSWorkspace.shared.open(URL(fileURLWithPath: logPath))
@@ -347,30 +347,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func uninstall() {
         let alert = NSAlert()
-        alert.messageText = "Désinstaller MacServer ?"
-        alert.informativeText = "Le service sera arrêté, la veille normale restaurée et l'icône supprimée."
+        alert.messageText = "Uninstall MacServer?"
+        alert.informativeText = "The service will be stopped, normal sleep restored, and the icon removed."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Désinstaller")
-        alert.addButton(withTitle: "Annuler")
+        alert.addButton(withTitle: "Uninstall")
+        alert.addButton(withTitle: "Cancel")
         NSApp.activate(ignoringOtherApps: true)
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
         guard FileManager.default.fileExists(atPath: "/usr/local/libexec/macserver-uninstall") else {
-            showError("Le script de désinstallation est introuvable. MacServer n'est peut-être pas installé.")
+            showError("The uninstall script is missing. MacServer may not be installed correctly.")
             return
         }
 
         let source = "do shell script \"/usr/local/libexec/macserver-uninstall\" with administrator privileges"
         guard let script = NSAppleScript(source: source) else {
-            showError("Impossible de lancer la désinstallation.")
+            showError("Could not start the uninstall.")
             return
         }
 
         var error: NSDictionary?
         script.executeAndReturnError(&error)
         if error != nil {
-            showError("La désinstallation a été annulée ou a échoué.")
+            showError("The uninstall was cancelled or failed.")
         } else {
             NSApp.terminate(nil)
         }

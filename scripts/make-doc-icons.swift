@@ -1,6 +1,6 @@
 import Cocoa
 
-// Génère les icônes d'illustration pour le README.
+// Generates README illustration icons.
 // Usage: xcrun swift scripts/make-doc-icons.swift
 
 let scale: CGFloat = 10
@@ -38,7 +38,7 @@ for state in states {
         bytesPerRow: 0,
         bitsPerPixel: 0
     ) else {
-        fatalError("Impossible de créer le bitmap")
+        fatalError("Could not create bitmap")
     }
 
     NSGraphicsContext.saveGraphicsState()
@@ -69,9 +69,9 @@ for state in states {
     NSGraphicsContext.restoreGraphicsState()
 
     guard let png = rep.representation(using: .png, properties: [:]) else {
-        fatalError("Impossible de générer \(state.file)")
+        fatalError("Could not generate \(state.file)")
     }
     let url = outputDirectory.appendingPathComponent(state.file)
     try png.write(to: url)
-    print("Écrit: \(url.path)")
+    print("Wrote: \(url.path)")
 }

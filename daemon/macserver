@@ -1,6 +1,6 @@
 #!/bin/zsh
-# MacServer - garde le Mac eveille sur secteur, veille normale sur batterie.
-# Installe dans /usr/local/bin/macserver et lance en root par launchd.
+# MacServer - keeps the Mac awake on AC power, normal sleep on battery.
+# Installed at /usr/local/bin/macserver and run as root by launchd.
 
 set -u
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
@@ -75,14 +75,14 @@ set_sleep_disabled() {
   now=$(sleep_disabled_now)
   if [[ "$now" != "$want" ]]; then
     if pmset -a disablesleep "$want" >> "$LOG_FILE" 2>&1; then
-      log "disablesleep $want applique (avant: $now)"
+      log "disablesleep $want applied (was: $now)"
       if [[ "$want" == "1" ]]; then
-        # Garde une assertion PreventSystemSleep quelques secondes apres le
-        # branchement, le temps que disablesleep prenne le relais.
+        # Keep a PreventSystemSleep assertion for a few seconds after plugging
+        # in, while disablesleep takes over.
         /usr/bin/caffeinate -s -t 5 >/dev/null 2>&1 &
       fi
     else
-      log "ERREUR: pmset -a disablesleep $want a echoue"
+      log "ERROR: pmset -a disablesleep $want failed"
       return 1
     fi
   fi
@@ -113,28 +113,28 @@ cleanup() {
   [[ -e "$PAUSE_FLAG" ]] && p=1
   [[ -e "$BATTERY_FLAG" ]] && b=1
   write_status "UNKNOWN" "unknown" "$p" "$b" "0" "0"
-  log "arret: veille normale restauree"
+  log "stopped: normal sleep restored"
   exit 0
 }
 
 daemon() {
   ensure_state_dir
   rotate_log
-  log "demarrage (pid $$)"
+  log "started (pid $$)"
   trap cleanup EXIT INT TERM HUP
 
-  # Meilleur effort : reveil au branchement du chargeur. Non supporte sur
-  # certains Mac Apple Silicon, on continue quand meme si ca echoue.
+  # Best effort: wake when the charger is connected. Unsupported on some
+  # Apple Silicon Macs; continue even if it fails.
   if pmset -a acwake 1 >> "$LOG_FILE" 2>&1; then
-    log "acwake 1 demande"
+    log "acwake 1 requested"
   else
-    log "acwake non supporte ou refuse"
+    log "acwake unsupported or refused"
   fi
 
   if sysadminctl -screenLock status -password - 2>&1 | grep -q "immediate"; then
-    log "verrouillage ecran: immediat"
+    log "screen lock: immediate"
   else
-    log "ATTENTION: verrouillage ecran pas immediat"
+    log "WARNING: screen lock is not immediate"
   fi
 
   local power lid paused battery_mode percent want sleep_disabled now first
@@ -148,7 +148,7 @@ daemon() {
     if [[ -e "$LOCK_FLAG" ]]; then
       rm -f "$LOCK_FLAG" 2>/dev/null || true
       pmset displaysleepnow >/dev/null 2>&1 || true
-      log "verrouillage de l'ecran demande"
+      log "screen lock requested"
     fi
 
     if [[ -e "$PAUSE_FLAG" ]]; then paused=1; else paused=0; fi
@@ -167,15 +167,15 @@ daemon() {
     set_sleep_disabled "$want" || true
     sleep_disabled=$(sleep_disabled_now)
 
-    # A la fermeture du capot, on eteint l'ecran pour que macOS verrouille
-    # immediatement la session (le service continue de tourner en arriere-plan).
+    # On lid close, turn off the display so macOS locks the session
+    # immediately (the service keeps running in the background).
     if [[ "$lid" == "closed" && "$last_lid" != "closed" ]]; then
       pmset displaysleepnow >/dev/null 2>&1 || true
-      log "capot ferme: ecran eteint et verrouille"
+      log "lid closed: display off and screen locked"
     fi
 
-    # Si on vient de repasser en veille normale sur batterie avec le capot
-    # ferme, on endort tout de suite pour ne pas vider la batterie.
+    # If we just switched back to normal sleep on battery with the lid
+    # closed, sleep now to avoid draining the battery.
     if [[ "$power" == "BATTERY" && "$lid" == "closed" && "$want" == "0" ]]; then
       pmset sleepnow >/dev/null 2>&1 || true
     fi
@@ -188,7 +188,7 @@ daemon() {
     fi
 
     if [[ "$power" != "$last_power" || "$lid" != "$last_lid" || "$paused" != "$last_paused" || "$battery_mode" != "$last_battery_mode" ]]; then
-      log "etat: power=$power lid=$lid paused=$paused battery_mode=$battery_mode battery=${percent}% sleep_disabled=$sleep_disabled"
+      log "state: power=$power lid=$lid paused=$paused battery_mode=$battery_mode battery=${percent}% sleep_disabled=$sleep_disabled"
       last_power=$power
       last_lid=$lid
       last_paused=$paused
@@ -210,21 +210,21 @@ status_cmd() {
   if [[ -e "$BATTERY_FLAG" ]]; then battery_mode=1; else battery_mode=0; fi
 
   print "MacServer"
-  print "  Alimentation       : $power"
-  print "  Batterie           : ${percent}%"
-  print "  Capot              : $lid"
-  print "  Veille desactivee  : $disabled"
-  print "  Pause              : $paused"
-  print "  Mode batterie      : $battery_mode (arret a ${BATTERY_FLOOR}%)"
+  print "  Power source      : $power"
+  print "  Battery           : ${percent}%"
+  print "  Lid               : $lid"
+  print "  Sleep disabled    : $disabled"
+  print "  Paused            : $paused"
+  print "  Battery mode      : $battery_mode (stop at ${BATTERY_FLOOR}%)"
 
   if pgrep -f "/usr/local/bin/macserver daemon" >/dev/null 2>&1; then
-    print "  Service            : actif"
+    print "  Service           : active"
   else
-    print "  Service            : arrete"
+    print "  Service           : stopped"
   fi
 
   if [[ -r "$STATUS_FILE" ]]; then
-    print "  Dernier etat       :"
+    print "  Last state        :"
     sed 's/^/    /' "$STATUS_FILE"
   fi
 }
@@ -232,16 +232,16 @@ status_cmd() {
 pause_cmd() {
   mkdir -p "$STATE_DIR" 2>/dev/null || true
   if : > "$PAUSE_FLAG" 2>/dev/null; then
-    print "MacServer en pause."
+    print "MacServer paused."
   else
-    print "Impossible d'ecrire le drapeau de pause." >&2
+    print "Could not write the pause flag." >&2
     exit 1
   fi
 }
 
 resume_cmd() {
   rm -f "$PAUSE_FLAG" 2>/dev/null || true
-  print "MacServer repris."
+  print "MacServer resumed."
 }
 
 battery_cmd() {
@@ -250,16 +250,16 @@ battery_cmd() {
     on)
       mkdir -p "$STATE_DIR" 2>/dev/null || true
       if : > "$BATTERY_FLAG" 2>/dev/null; then
-        print "Mode batterie active (arret a ${BATTERY_FLOOR}%)."
-        print "Attention : le Mac chauffe et consomme la batterie."
+        print "Battery mode enabled (stop at ${BATTERY_FLOOR}%)."
+        print "Warning: the Mac will get warm and drain the battery."
       else
-        print "Impossible d'ecrire le drapeau batterie." >&2
+        print "Could not write the battery flag." >&2
         exit 1
       fi
       ;;
     off)
       rm -f "$BATTERY_FLAG" 2>/dev/null || true
-      print "Mode batterie desactive."
+      print "Battery mode disabled."
       ;;
     *)
       print "Usage: macserver battery on|off" >&2
@@ -287,7 +287,7 @@ case "${1:-}" in
     ;;
   uninstall)
     if [[ $EUID -ne 0 ]]; then
-      print "La desinstallation necessite sudo." >&2
+      print "Uninstall requires sudo." >&2
       exit 1
     fi
     exec /usr/local/libexec/macserver-uninstall

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installe MacServer (service root + icone dans la barre des menus).
+# Installs MacServer (root service + menu bar icon).
 set -u
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -7,16 +7,16 @@ cd "$SCRIPT_DIR"
 PROJECT_DIR="$SCRIPT_DIR"
 APP_SRC="$PROJECT_DIR/build/MacServer.app"
 
-# 1. En tant qu'utilisateur : compiler puis demander sudo.
+# 1. As the user: build, then request sudo.
 if [[ $EUID -ne 0 ]]; then
-    echo "== Construction de MacServer =="
+    echo "== Building MacServer =="
     "$PROJECT_DIR/build.sh"
     echo
-    echo "== Installation (mot de passe administrateur) =="
+    echo "== Installing (administrator password) =="
     exec sudo "$PROJECT_DIR/install.sh" "$@"
 fi
 
-# 2. En root : trouver l'utilisateur connecte.
+# 2. As root: find the logged-in user.
 if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
     TARGET_USER="$SUDO_USER"
 else
@@ -24,8 +24,8 @@ else
 fi
 
 if [[ -z "${TARGET_USER:-}" || "$TARGET_USER" == "root" ]]; then
-    echo "Impossible de trouver l'utilisateur connecte."
-    echo "Lance le script depuis ta session : ./install.sh"
+    echo "Could not find the logged-in user."
+    echo "Run the script from your session: ./install.sh"
     exit 1
 fi
 
@@ -33,21 +33,21 @@ TARGET_UID=$(id -u "$TARGET_USER")
 TARGET_HOME=$(dscl . -read "/Users/$TARGET_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
 
 if [[ -z "${TARGET_HOME:-}" || ! -d "$TARGET_HOME" ]]; then
-    echo "Dossier personnel introuvable pour $TARGET_USER."
+    echo "Home directory not found for $TARGET_USER."
     exit 1
 fi
 
 if [[ ! -d "$APP_SRC" ]]; then
-    echo "L'application n'est pas compilee."
-    echo "Lance ./build.sh puis relance l'installation."
+    echo "The application is not built."
+    echo "Run ./build.sh then retry the installation."
     exit 1
 fi
 
-echo "Utilisateur : $TARGET_USER"
-echo "Application : $APP_SRC"
+echo "User: $TARGET_USER"
+echo "Application: $APP_SRC"
 echo
 
-echo "== Arret de l'ancienne version =="
+echo "== Stopping previous version =="
 launchctl bootout system/com.am1ne.macserver.daemon 2>/dev/null || true
 launchctl bootout "gui/$TARGET_UID/com.am1ne.macserver.app" 2>/dev/null || true
 launchctl asuser "$TARGET_UID" osascript -e 'tell application "MacServer" to quit' 2>/dev/null || true
@@ -59,7 +59,7 @@ rm -f /usr/local/bin/macserver
 rm -f /usr/local/libexec/macserver-uninstall
 rm -f /Library/LaunchDaemons/com.am1ne.macserver.daemon.plist
 
-echo "== Installation de l'application =="
+echo "== Installing application =="
 ditto "$APP_SRC" /Applications/MacServer.app
 chown -R root:wheel /Applications/MacServer.app
 xattr -dr com.apple.quarantine /Applications/MacServer.app 2>/dev/null || true
@@ -67,7 +67,7 @@ if ! codesign --verify --deep --strict /Applications/MacServer.app >/dev/null 2>
     codesign --force --deep --sign - /Applications/MacServer.app
 fi
 
-echo "== Installation du service =="
+echo "== Installing service =="
 mkdir -p /usr/local/bin /usr/local/libexec
 install -m 0755 -o root -g wheel "$PROJECT_DIR/daemon/macserver" /usr/local/bin/macserver
 install -m 0755 -o root -g wheel "$PROJECT_DIR/daemon/macserver-uninstall" /usr/local/libexec/macserver-uninstall
@@ -81,15 +81,15 @@ touch /var/log/macserver.log
 chown root:wheel /var/log/macserver.log
 chmod 644 /var/log/macserver.log
 
-echo "== Activation du reveil au branchement =="
+echo "== Enabling wake on charger =="
 if pmset -a acwake 1 >> /var/log/macserver.log 2>&1; then
-    echo "  acwake active."
+    echo "  acwake enabled."
 else
-    echo "  acwake refuse par ce Mac (le reveil au branchement peut ne pas marcher)."
+    echo "  acwake refused by this Mac (wake on charger may not work)."
 fi
 
-echo "== Demarrage du service =="
-# Attendre que l'ancien service soit completement decharge.
+echo "== Starting service =="
+# Wait for the previous service to unload completely.
 for _ in {1..20}; do
     if ! launchctl print system/com.am1ne.macserver.daemon >/dev/null 2>&1; then
         break
@@ -104,20 +104,20 @@ for attempt in 1 2 3; do
         BOOTSTRAPPED=1
         break
     fi
-    echo "  chargement du service : tentative $attempt echouee, nouvel essai..."
+    echo "  loading service: attempt $attempt failed, retrying..."
     sleep 2
 done
 
 if [[ "$BOOTSTRAPPED" -ne 1 ]]; then
-    echo "ERREUR : impossible de charger le service."
-    echo "Verifie /var/log/macserver.log puis relance l'installation."
+    echo "ERROR: could not load service."
+    echo "Check /var/log/macserver.log then retry the installation."
     exit 1
 fi
 
 launchctl enable system/com.am1ne.macserver.daemon 2>/dev/null || true
 launchctl kickstart -k system/com.am1ne.macserver.daemon 2>/dev/null || true
 
-echo "== Installation de l'icone =="
+echo "== Installing menu bar icon =="
 mkdir -p "$TARGET_HOME/Library/LaunchAgents"
 install -m 0644 -o "$TARGET_USER" -g staff \
     "$PROJECT_DIR/app/com.am1ne.macserver.app.plist" \
@@ -143,20 +143,20 @@ echo "== Verification =="
 echo
 if pmset -g ps | head -1 | grep -q "AC Power"; then
     if [[ "$(pmset -g | awk '/SleepDisabled/ {print $2; exit}')" == "1" ]]; then
-        echo "OK : mode serveur actif, la veille est desactivee sur secteur."
+        echo "OK: server mode active, sleep disabled on AC power."
     else
-        echo "ATTENTION : la veille n'est pas encore desactivee."
-        echo "Regarde /var/log/macserver.log pour comprendre."
+        echo "WARNING: sleep is not disabled yet."
+        echo "Check /var/log/macserver.log for details."
     fi
 else
-    echo "OK : sur batterie, la veille reste normale."
+    echo "OK: on battery, normal sleep."
 fi
 
 echo
-echo "Notes :"
-echo "  - Sur batterie normale, l'icone MacServer affiche pause ; sur secteur, elle passe au vert."
-echo "  - macOS peut demander d'autoriser MacServer dans Reglages > General > Ouverture de session."
-echo "  - Ne laisse pas le Mac eveille dans une housse ou sur un lit."
-echo "  - Desinstallation : icone MacServer > Desinstaller, ou sudo /usr/local/libexec/macserver-uninstall"
+echo "Notes:"
+echo "  - On normal battery, the MacServer icon shows pause; on AC power, it turns green."
+echo "  - macOS may ask you to allow MacServer in System Settings > General > Login Items & Extensions."
+echo "  - Do not leave the Mac awake in a bag or on a bed."
+echo "  - Uninstall: MacServer icon > Uninstall, or sudo /usr/local/libexec/macserver-uninstall"
 echo
-echo "MacServer est installe."
+echo "MacServer is installed."

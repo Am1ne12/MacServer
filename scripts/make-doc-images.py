@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Génère les visuels du README (banner, états, aperçu du menu)."""
+"""Generates README images (banner, icon states, menu preview)."""
 
 from pathlib import Path
 
@@ -68,7 +68,7 @@ def make_banner():
     draw.text((378, 120), "MacServer", font=font(118, True), fill=(245, 247, 250))
     draw.text(
         (382, 262),
-        "Transforme ton MacBook en serveur, uniquement sur secteur.",
+        "Turn your MacBook into a server, only while plugged in.",
         font=font(31),
         fill=(170, 178, 192),
     )
@@ -94,19 +94,19 @@ def make_icon_states():
     add_glow(image, (1350, 380), 300, (249, 115, 22, 30), blur=120)
 
     draw = ImageDraw.Draw(image)
-    draw.text((80, 50), "Les 3 modes + l'alerte", font=font(42, True), fill=(245, 247, 250))
+    draw.text((80, 50), "3 Modes + Alert", font=font(42, True), fill=(245, 247, 250))
     draw.text(
         (80, 108),
-        "L'icône indique toujours l'état, sans ouvrir le menu.",
+        "The icon always shows the current state, without opening the menu.",
         font=font(22),
         fill=(160, 168, 182),
     )
 
     states = [
-        ("icon-green.png", "Serveur secteur", "Veille désactivée"),
-        ("icon-pause.png", "Portable / pause", "Veille normale"),
-        ("icon-battery.png", "Serveur batterie", "Jusqu'à 20 %"),
-        ("icon-error.png", "Alerte", "Service arrêté"),
+        ("icon-green.png", "Server — AC", "Sleep disabled"),
+        ("icon-pause.png", "Laptop / paused", "Normal sleep"),
+        ("icon-battery.png", "Server — battery", "Up to 20%"),
+        ("icon-error.png", "Alert", "Service stopped"),
     ]
 
     centers = [260, 620, 980, 1340]
@@ -126,22 +126,22 @@ def make_menu_preview():
 
     draw = ImageDraw.Draw(image)
 
-    # Barre des menus simplifiée.
+    # Simplified menu bar.
     draw.rectangle([0, 0, width, 54], fill=(8, 10, 14, 210))
     draw.line([0, 54, width, 54], fill=(70, 76, 88, 220), width=1)
     paste_icon(image, "icon-green.png", (700, 13, 728, 41))
     draw.text((820, 17), "Tue 17 Nov   22:00", font=font(16), fill=(225, 229, 236))
 
-    # Panneau du menu.
+    # Menu panel.
     panel = [558, 54, 958, 474]
     rounded_shadow(image, panel, radius=16, blur=20, offset=14, alpha=160)
     draw.rounded_rectangle(panel, radius=16, fill=(31, 32, 35, 250), outline=(70, 72, 78, 255), width=1)
 
     x = 580
-    draw.text((x, 76), "MacServer — Actif — secteur", font=font(20, True), fill=(245, 247, 250))
+    draw.text((x, 76), "MacServer — Active — AC Power", font=font(20, True), fill=(245, 247, 250))
     draw.text(
         (x, 108),
-        "Le Mac reste éveillé, capot ouvert ou fermé.",
+        "The Mac stays awake, lid open or closed.",
         font=font(15),
         fill=(158, 164, 176),
     )
@@ -150,22 +150,22 @@ def make_menu_preview():
         draw.line([x, y, 936, y], fill=(66, 68, 74), width=1)
 
     separator(144)
-    draw.text((x, 162), "Mettre en pause", font=font(18), fill=(240, 242, 246))
+    draw.text((x, 162), "Pause Server", font=font(18), fill=(240, 242, 246))
     draw.text(
         (x, 202),
-        "Rester éveillé sur batterie (max 20 %)",
+        "Stay Awake on Battery (max 20%)",
         font=font(18),
         fill=(240, 242, 246),
     )
     separator(244)
 
-    draw.text((x, 264), "Verrouiller l'écran maintenant", font=font(18), fill=(240, 242, 246))
-    draw.text((x, 304), "Ouvrir le journal", font=font(18), fill=(240, 242, 246))
-    draw.text((x, 344), "Désinstaller MacServer…", font=font(18), fill=(240, 242, 246))
+    draw.text((x, 264), "Lock Screen Now", font=font(18), fill=(240, 242, 246))
+    draw.text((x, 304), "Open Log", font=font(18), fill=(240, 242, 246))
+    draw.text((x, 344), "Uninstall MacServer…", font=font(18), fill=(240, 242, 246))
     separator(386)
     draw.text(
         (x, 404),
-        "Quitter l'icône (le service continue)",
+        "Quit Icon (service keeps running)",
         font=font(18),
         fill=(240, 242, 246),
     )
@@ -176,7 +176,7 @@ def make_menu_preview():
 
 def make_social_preview():
     source = Image.open(IMAGES / "banner.png").convert("RGB")
-    # Format 1280x640 : on centre le banner et on complète avec le fond.
+    # 1280x640 format: center the banner and fill the background.
     canvas = vertical_gradient((1280, 640), (10, 12, 17), (22, 28, 38)).convert("RGBA")
     add_glow(canvas, (240, 180), 320, (34, 197, 94, 40), blur=110)
     paste_icon(canvas, "icon-green.png", (90, 220, 250, 380))
