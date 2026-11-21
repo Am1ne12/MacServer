@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 — 2026-11-21
+
+- Added lid actions: turn off the display, turn off the keyboard backlight, and mute audio when the lid closes; restore them when it opens.
+- Added external display detection: a MacBook closed at a desk with an external display is left alone.
+- Added a Lid Actions submenu with independent toggles for the keyboard backlight and audio.
+- Added a small app log at `/Users/Shared/MacServer/app.log`.
+- The daemon now delegates display sleep and the other lid actions to the menu bar app, so an external display is never turned off by mistake.
+- The keyboard backlight uses a guarded private CoreBrightness API; it is skipped if the API changes.
+- Quit and Uninstall restore any active lid action first.
+
 ## 1.1.0 — 2026-11-21
 
 - Added an install skill for coding agents and SHA-256 verification for releases.

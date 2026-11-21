@@ -17,8 +17,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Am1ne12/MacServer/releases/download/v1.1.0/MacServer-1.1.0.dmg">
-    <img src="https://img.shields.io/badge/Download_MacServer-1.1.0-2ea44f?style=for-the-badge&logo=apple&logoColor=white" alt="Download MacServer 1.1.0">
+  <a href="https://github.com/Am1ne12/MacServer/releases/download/v1.2.0/MacServer-1.2.0.dmg">
+    <img src="https://img.shields.io/badge/Download_MacServer-1.2.0-2ea44f?style=for-the-badge&logo=apple&logoColor=white" alt="Download MacServer 1.2.0">
   </a>
   <a href="https://github.com/Am1ne12/MacServer/releases/latest">
     <img src="https://img.shields.io/badge/Release_Notes-555555?style=for-the-badge" alt="Release notes">
@@ -59,16 +59,19 @@ MacServer fills that gap with a small macOS service and a menu bar icon.
 - **Optional battery server mode**: the Mac stays awake on battery until 20%, then goes to sleep to protect the battery.
 - **Battery guard**: in battery server mode, Low Power Mode turns on below 40% and the session ends at 20%.
 - **Thermal protection**: if macOS reports critical thermal pressure, sleep is re-enabled automatically (best effort).
+- **Lid actions**: closing the lid turns off the display, turns off the keyboard backlight, and mutes audio. Opening it restores them.
+- **Desk-aware**: if an external display is connected, lid actions are skipped so a closed MacBook at a desk is left alone.
 - **Screen lock**: closing the lid turns off the display and locks the session. The server keeps running.
 - **Always-visible icon**: server on AC, laptop/paused, server on battery, thermal alert.
 - **Compact menu bar icon**: a smaller icon for crowded menu bars.
-- **Full menu**: pause/resume, battery mode, compact icon, lock screen now, log, uninstall.
+- **Lid Actions menu**: independent toggles for the keyboard backlight and audio.
+- **Full menu**: pause/resume, battery mode, compact icon, lid actions, lock screen now, log, uninstall.
 - **`macserver` CLI**: `status`, `pause`, `resume`, `battery on|off`, `compact on|off`.
 - **Root LaunchDaemon**: starts at boot and restarts automatically if it exits.
 - **Recovery watchdog**: a second LaunchDaemon checks every 30 seconds and restores normal sleep if the main service dies or becomes stale.
 - **Install skill**: a `skills/install-macserver` file lets a coding agent download, verify, and install the app from Terminal.
 - **Release checksums**: each release includes `SHA256SUMS`.
-- **No external dependencies**: Swift/AppKit for the icon, zsh and `pmset` for the service.
+- **No external dependencies**: Swift/AppKit for the menu bar app, zsh and `pmset` for the service. The keyboard backlight uses a guarded private Apple API.
 - **Universal binary**: Apple Silicon and Intel.
 - **Clean uninstall**: restores normal macOS sleep, Low Power Mode, and removes every file.
 
@@ -101,8 +104,8 @@ The agent downloads the latest release, verifies the SHA-256 checksum, and insta
 ### Download the DMG
 
 <p align="center">
-  <a href="https://github.com/Am1ne12/MacServer/releases/download/v1.1.0/MacServer-1.1.0.dmg">
-    <img src="https://img.shields.io/badge/Download_MacServer-1.1.0-2ea44f?style=for-the-badge&logo=apple&logoColor=white" alt="Download MacServer 1.1.0">
+  <a href="https://github.com/Am1ne12/MacServer/releases/download/v1.2.0/MacServer-1.2.0.dmg">
+    <img src="https://img.shields.io/badge/Download_MacServer-1.2.0-2ea44f?style=for-the-badge&logo=apple&logoColor=white" alt="Download MacServer 1.2.0">
   </a>
 </p>
 
@@ -147,7 +150,7 @@ sudo ./install.sh
 Build a DMG:
 
 ```bash
-./scripts/release.sh 1.1.0
+./scripts/release.sh 1.2.0
 ```
 
 The DMG is created in `dist/`.
@@ -173,8 +176,8 @@ If **Open Anyway** does not appear, try to open the blocked item again, then che
 ### Remove the quarantine from the downloaded DMG
 
 ```bash
-xattr -dr com.apple.quarantine ~/Downloads/MacServer-1.1.0.dmg
-open ~/Downloads/MacServer-1.1.0.dmg
+xattr -dr com.apple.quarantine ~/Downloads/MacServer-1.2.0.dmg
+open ~/Downloads/MacServer-1.2.0.dmg
 ```
 
 Then double-click `Install MacServer.command`.
@@ -182,9 +185,9 @@ Then double-click `Install MacServer.command`.
 ### Download with curl (no quarantine)
 
 ```bash
-curl -L -o ~/Downloads/MacServer-1.1.0.dmg \
-  https://github.com/Am1ne12/MacServer/releases/download/v1.1.0/MacServer-1.1.0.dmg
-open ~/Downloads/MacServer-1.1.0.dmg
+curl -L -o ~/Downloads/MacServer-1.2.0.dmg \
+  https://github.com/Am1ne12/MacServer/releases/download/v1.2.0/MacServer-1.2.0.dmg
+open ~/Downloads/MacServer-1.2.0.dmg
 ```
 
 Files downloaded from Terminal do not get the `com.apple.quarantine` attribute.
@@ -194,7 +197,7 @@ Files downloaded from Terminal do not get the `com.apple.quarantine` attribute.
 This bypasses the blocked `Install MacServer.command`:
 
 ```bash
-cd "/Volumes/MacServer 1.1.0"
+cd "/Volumes/MacServer 1.2.0"
 sudo .installer/install.sh
 ```
 
@@ -231,10 +234,11 @@ The MacServer icon is always visible. If it does not appear, your menu bar is pr
 - **Pause Server / Resume Server**: temporarily restore normal behavior. The pause item only appears while the Mac is in server mode.
 - **Stay Awake on Battery (max 20%)**: battery server mode, off by default. The Mac stays awake until 20%, then sleeps.
 - **Compact Menu Bar Icon**: switches to a smaller 16×16 icon for crowded menu bars.
+- **Lid Actions**: opens a submenu with **Turn Off Keyboard Backlight** and **Mute Audio**, both on by default.
 - **Lock Screen Now**: turns off the display and locks the session immediately. The service keeps running.
 - **Open Log**: opens `/var/log/macserver.log`.
 - **Uninstall MacServer…**: stops the service, restores normal sleep and removes the app.
-- **Quit Icon**: closes only the icon; the service keeps running.
+- **Quit Icon**: closes only the icon; the service keeps running. Active lid actions are restored first.
 
 ### Command line
 
@@ -254,13 +258,14 @@ Diagnostics:
 pmset -g | grep SleepDisabled    # 1 = sleep disabled
 pmset -g ps                      # power source
 tail -f /var/log/macserver.log   # service log
+cat /Users/Shared/MacServer/app.log  # lid actions log
 ```
 
 ## How it works
 
 MacServer has three parts:
 
-1. **`MacServer.app`**: a small AppKit menu bar app. It reads a state file and displays the matching icon.
+1. **`MacServer.app`**: a small AppKit menu bar app. It displays the icon and handles the lid actions.
 2. **`com.am1ne.macserver.daemon`**: a root LaunchDaemon that applies the sleep policy.
 3. **`com.am1ne.macserver.watchdog`**: a second root LaunchDaemon that checks the main service every 30 seconds.
 
@@ -272,8 +277,10 @@ The main service checks the state about once per second:
 - **Battery guard** → below 40%, Low Power Mode is enabled for the battery profile; it is restored when no longer needed.
 - **Thermal protection** → if macOS reports critical thermal pressure, `disablesleep 0` is restored and the Mac can sleep. This is best effort because Apple Silicon may not expose thermal telemetry.
 - **On charger connection** → `acwake` wakes the Mac, then the service applies `disablesleep 1` and briefly holds a `caffeinate -s` assertion to avoid going back to sleep immediately.
-- **On lid close** → `pmset displaysleepnow` turns off the display to trigger macOS screen locking.
+- **On lid close** → the service records the lid state and lets the app handle the lid actions.
 - **On stop or uninstall** → `disablesleep 0` and the original Low Power Mode state are restored.
+
+When the app sees `lid=closed`, server mode active, and no external display, it saves the keyboard brightness and audio state, turns off the keyboard backlight, mutes audio, and calls `pmset displaysleepnow`. Opening the lid restores the keyboard and audio. If an external display is connected, the app leaves the desk setup alone.
 
 The watchdog runs every 30 seconds. If the main daemon is not running, or its status file is older than 60 seconds, the watchdog restores normal sleep, releases any Low Power Mode it owns, and asks launchd to restart the main service. The app and the service communicate through a small state file in `/Users/Shared/MacServer/status`. No network connection, no external daemon.
 
@@ -291,7 +298,7 @@ The Mac stays awake until 20%, then sleeps to avoid draining the battery. Below 
 
 ## Screen lock and security
 
-When the lid closes, the service turns off the display. macOS then locks the session if this setting is enabled:
+When the lid closes, the app turns off the display (unless an external display is connected). macOS then locks the session if this setting is enabled:
 
 **System Settings > Lock Screen > Require password after screen saver begins or display is turned off > Immediately.**
 
@@ -312,6 +319,10 @@ The service runs as root, but it only executes fixed system commands and reads l
 - **Full menu bar**: macOS may hide the icon if the menu bar is crowded. Run `macserver compact on` for the smaller icon, hide a few icons, or use a menu bar manager.
 - **Thermal telemetry**: the thermal rule only works when macOS reports `CPU_Speed_Limit` or `Scheduler_Limit`; on some Apple Silicon Macs those values are not exposed, so the rule is best effort.
 - **Low Power Mode**: MacServer only changes the battery Low Power Mode while battery server mode is active and restores it when no longer needed.
+- **Keyboard backlight**: this uses a private CoreBrightness API. It is checked at launch and skipped if the API changes; the rest of the lid actions still run.
+- **Lid actions require the app**: the menu bar app must be running in a logged-in session for keyboard, audio, and display actions. The daemon still keeps the server awake without it.
+- **Desk mode**: with an external display connected, lid actions are skipped so the display, keyboard, and audio are left alone.
+- **App log**: lid actions are logged to `/Users/Shared/MacServer/app.log`.
 - **Watchdog**: if the main service is killed, the watchdog restores normal sleep and restarts it within about 30–60 seconds.
 - **Restart after power loss**: to make the Mac restart automatically after a power failure:
   ```bash
@@ -370,6 +381,16 @@ pmset -g therm
 
 Low Power Mode is managed automatically only while battery server mode is active. Thermal protection is best effort: some Apple Silicon Macs do not expose `CPU_Speed_Limit` or `Scheduler_Limit`.
 
+### Lid actions do not run
+
+```bash
+pgrep -fl MacServer
+awk -F= '/^lid=/{print $2}' /Users/Shared/MacServer/status
+cat /Users/Shared/MacServer/app.log
+```
+
+The app must be running in a logged-in session. If an external display is connected, lid actions are intentionally skipped. If **Turn Off Keyboard Backlight** is greyed out, the private keyboard API is unavailable on this macOS. The app log shows `keyboard backlight off (saved …)` and `keyboard backlight restored …` when it works.
+
 ### The Mac still sleeps with the lid closed
 
 ```bash
@@ -408,12 +429,16 @@ The uninstaller:
 - restores `disablesleep 0`, `acwake 0`, and Low Power Mode if MacServer enabled it;
 - removes both LaunchDaemons, the LaunchAgent, app, CLI, state and log.
 
+When you uninstall from the menu while the lid is closed, the app first restores the keyboard backlight and audio, then runs the uninstaller. The Terminal uninstaller cannot restore the keyboard backlight because the app is not running; open the lid or raise the brightness keys if needed.
+
 ## Project structure
 
 ```text
 MacServer/
 ├── app/
 │   ├── main.swift
+│   ├── KeyboardBacklight.swift
+│   ├── SystemAudio.swift
 │   ├── Info.plist
 │   ├── AppIcon.icns
 │   └── com.am1ne.macserver.app.plist

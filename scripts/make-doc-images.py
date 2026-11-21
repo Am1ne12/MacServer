@@ -81,7 +81,7 @@ def make_banner():
 
     pill = [382, 370, 532, 414]
     draw.rounded_rectangle(pill, radius=22, fill=(34, 197, 94, 30), outline=(52, 211, 153, 190))
-    draw.text((404, 380), "v1.1.0", font=font(21, True), fill=(134, 239, 172))
+    draw.text((404, 380), "v1.2.0", font=font(21, True), fill=(134, 239, 172))
 
     image.convert("RGB").save(IMAGES / "banner.png", optimize=True)
     print("banner.png")
@@ -133,7 +133,7 @@ def make_menu_preview():
     draw.text((820, 17), "Tue 17 Nov   22:00", font=font(16), fill=(225, 229, 236))
 
     # Menu panel.
-    panel = [558, 54, 958, 514]
+    panel = [558, 54, 958, 554]
     rounded_shadow(image, panel, radius=16, blur=20, offset=14, alpha=160)
     draw.rounded_rectangle(panel, radius=16, fill=(31, 32, 35, 250), outline=(70, 72, 78, 255), width=1)
 
@@ -158,14 +158,16 @@ def make_menu_preview():
         fill=(240, 242, 246),
     )
     draw.text((x, 242), "Compact Menu Bar Icon", font=font(18), fill=(240, 242, 246))
-    separator(284)
+    draw.text((x, 282), "Lid Actions", font=font(18), fill=(240, 242, 246))
+    draw.text((920, 282), "›", font=font(18, True), fill=(160, 166, 178))
+    separator(324)
 
-    draw.text((x, 304), "Lock Screen Now", font=font(18), fill=(240, 242, 246))
-    draw.text((x, 344), "Open Log", font=font(18), fill=(240, 242, 246))
-    draw.text((x, 384), "Uninstall MacServer…", font=font(18), fill=(240, 242, 246))
-    separator(426)
+    draw.text((x, 344), "Lock Screen Now", font=font(18), fill=(240, 242, 246))
+    draw.text((x, 384), "Open Log", font=font(18), fill=(240, 242, 246))
+    draw.text((x, 424), "Uninstall MacServer…", font=font(18), fill=(240, 242, 246))
+    separator(466)
     draw.text(
-        (x, 444),
+        (x, 484),
         "Quit Icon (service keeps running)",
         font=font(18),
         fill=(240, 242, 246),

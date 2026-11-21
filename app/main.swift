@@ -1,4 +1,5 @@
 import Cocoa
+import CoreGraphics
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -10,16 +11,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let batteryPath = "/Users/Shared/MacServer/keep-awake-battery"
     private let lockPath = "/Users/Shared/MacServer/lock-now"
     private let compactPath = "/Users/Shared/MacServer/compact"
+    private let lidStatePath = "/Users/Shared/MacServer/lid-state.json"
+    private let appLogPath = "/Users/Shared/MacServer/app.log"
     private let logPath = "/var/log/macserver.log"
+
+    private let keyboardBacklight = KeyboardBacklight()
+    private let systemAudio = SystemAudio()
+    private var lidActionsApplied = false
+    private var savedKeyboardBrightness: Float?
+    private var savedAudioVolume: Int?
+    private var savedAudioMuted: Bool?
+    private var lastKeyboardSample: Float?
 
     private var statusMenuItem: NSMenuItem!
     private var detailMenuItem: NSMenuItem!
     private var pauseMenuItem: NSMenuItem!
     private var batteryMenuItem: NSMenuItem!
     private var compactMenuItem: NSMenuItem!
+    private var lidKeyboardItem: NSMenuItem!
+    private var lidAudioItem: NSMenuItem!
+
+    private struct LidState: Codable {
+        var applied: Bool
+        var keyboard: Float?
+        var audioVolume: Int?
+        var audioMuted: Bool?
+        var timestamp: Date
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        loadLidState()
         setupMenu()
         refresh()
 
@@ -87,6 +109,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         compactMenuItem.target = self
         menu.addItem(compactMenuItem)
 
+        lidKeyboardItem = NSMenuItem(
+            title: "Turn Off Keyboard Backlight",
+            action: #selector(toggleLidKeyboard),
+            keyEquivalent: ""
+        )
+        lidKeyboardItem.target = self
+        lidKeyboardItem.state = (keyboardBacklight.isAvailable && boolDefaultTrue("LidTurnOffKeyboard")) ? .on : .off
+        lidKeyboardItem.isEnabled = keyboardBacklight.isAvailable
+        if !keyboardBacklight.isAvailable {
+            lidKeyboardItem.toolTip = "Keyboard backlight control is unavailable on this macOS."
+        }
+
+        lidAudioItem = NSMenuItem(
+            title: "Mute Audio",
+            action: #selector(toggleLidAudio),
+            keyEquivalent: ""
+        )
+        lidAudioItem.target = self
+        lidAudioItem.state = boolDefaultTrue("LidMuteAudio") ? .on : .off
+
+        let lidMenu = NSMenu()
+        lidMenu.addItem(lidKeyboardItem)
+        lidMenu.addItem(lidAudioItem)
+
+        let lidRootItem = NSMenuItem(title: "Lid Actions", action: nil, keyEquivalent: "")
+        lidRootItem.submenu = lidMenu
+        menu.addItem(lidRootItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let lockItem = NSMenuItem(
@@ -134,8 +184,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let batteryFlag = FileManager.default.fileExists(atPath: batteryPath)
         batteryMenuItem.state = batteryFlag ? .on : .off
         compactMenuItem.state = FileManager.default.fileExists(atPath: compactPath) ? .on : .off
+        lidKeyboardItem.state = (keyboardBacklight.isAvailable && boolDefaultTrue("LidTurnOffKeyboard")) ? .on : .off
+        lidKeyboardItem.isEnabled = keyboardBacklight.isAvailable
+        lidAudioItem.state = boolDefaultTrue("LidMuteAudio") ? .on : .off
 
         guard let raw = try? String(contentsOfFile: statusPath, encoding: .utf8) else {
+            restoreLidActionsIfNeeded()
             pauseMenuItem.isHidden = true
             applyState(
                 icon: "exclamationmark",
@@ -162,10 +216,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let thermal = values["thermal"] == "1"
         let lowPower = values["low_power"] == "1"
         let battery = values["battery"] ?? "?"
+        let lidClosed = values["lid"] == "closed"
         let timestamp = Double(values["timestamp"] ?? "0") ?? 0
         let age = Date().timeIntervalSince1970 - timestamp
 
         if power == "UNKNOWN" || age > 20 {
+            restoreLidActionsIfNeeded()
             pauseMenuItem.isHidden = true
             applyState(
                 icon: "exclamationmark",
@@ -182,6 +238,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             (power == "BATTERY" && (batteryModeStatus || batteryFlag))
         )
         pauseMenuItem.isHidden = !(serverActive || pausedStatus || pausedFlag)
+
+        let externalDisplay = hasExternalDisplay()
+        if !lidClosed && !externalDisplay && serverActive && keyboardBacklight.isAvailable && !keyboardBacklight.isSuppressedOrDimmed() && userIsActive() {
+            if let value = keyboardBacklight.currentBrightness() {
+                lastKeyboardSample = value
+            }
+        }
+        syncLidActions(lidClosed: lidClosed, serverActive: serverActive, externalDisplay: externalDisplay)
 
         if thermal {
             pauseMenuItem.isHidden = true
@@ -351,6 +415,163 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refresh()
     }
 
+    @objc private func toggleLidKeyboard() {
+        let key = "LidTurnOffKeyboard"
+        let newValue = !boolDefaultTrue(key)
+        UserDefaults.standard.set(newValue, forKey: key)
+        lidKeyboardItem.state = newValue ? .on : .off
+    }
+
+    @objc private func toggleLidAudio() {
+        let key = "LidMuteAudio"
+        let newValue = !boolDefaultTrue(key)
+        UserDefaults.standard.set(newValue, forKey: key)
+        lidAudioItem.state = newValue ? .on : .off
+    }
+
+    private func boolDefaultTrue(_ key: String) -> Bool {
+        if UserDefaults.standard.object(forKey: key) == nil {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    private func syncLidActions(lidClosed: Bool, serverActive: Bool, externalDisplay: Bool) {
+        let shouldApply = lidClosed && serverActive && !externalDisplay
+        if shouldApply && !lidActionsApplied {
+            applyLidActions()
+        } else if !shouldApply && lidActionsApplied {
+            restoreLidActions()
+        }
+    }
+
+    private func applyLidActions() {
+        let turnOffKeyboard = keyboardBacklight.isAvailable && boolDefaultTrue("LidTurnOffKeyboard")
+        let muteAudio = boolDefaultTrue("LidMuteAudio")
+
+        var keyboardValue: Float?
+        if turnOffKeyboard {
+            keyboardValue = lastKeyboardSample
+            if keyboardValue == nil && !keyboardBacklight.isSuppressedOrDimmed() {
+                keyboardValue = keyboardBacklight.currentBrightness()
+            }
+            if keyboardValue == nil {
+                appLog("lid: no trusted keyboard brightness; leaving keyboard alone")
+            }
+        }
+
+        var audioSettings: SystemAudio.Settings?
+        if muteAudio {
+            audioSettings = systemAudio.read()
+            if audioSettings == nil {
+                appLog("lid: no audio settings; leaving audio alone")
+            }
+        }
+
+        let state = LidState(
+            applied: true,
+            keyboard: keyboardValue,
+            audioVolume: audioSettings?.volume,
+            audioMuted: audioSettings?.muted,
+            timestamp: Date()
+        )
+        saveLidState(state)
+        lidActionsApplied = true
+        savedKeyboardBrightness = keyboardValue
+        savedAudioVolume = audioSettings?.volume
+        savedAudioMuted = audioSettings?.muted
+
+        if let keyboardValue {
+            keyboardBacklight.setBrightness(0)
+            appLog("lid: keyboard backlight off (saved \(keyboardValue))")
+        }
+        if audioSettings != nil {
+            systemAudio.setMuted(true)
+            appLog("lid: audio muted")
+        }
+
+        runPmsetDisplaySleep()
+        appLog("lid: applied")
+    }
+
+    private func restoreLidActions() {
+        guard lidActionsApplied else { return }
+
+        if let savedKeyboardBrightness, keyboardBacklight.isAvailable {
+            keyboardBacklight.setBrightness(savedKeyboardBrightness)
+            appLog("lid: keyboard backlight restored to \(savedKeyboardBrightness)")
+        }
+        if let savedAudioVolume, let savedAudioMuted {
+            systemAudio.restore(volume: savedAudioVolume, muted: savedAudioMuted)
+            appLog("lid: audio restored (volume \(savedAudioVolume), muted \(savedAudioMuted))")
+        }
+
+        lidActionsApplied = false
+        savedKeyboardBrightness = nil
+        savedAudioVolume = nil
+        savedAudioMuted = nil
+        removeLidState()
+        appLog("lid: restored")
+    }
+
+    private func restoreLidActionsIfNeeded() {
+        if lidActionsApplied {
+            restoreLidActions()
+        }
+    }
+
+    private func loadLidState() {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: lidStatePath)),
+              let state = try? JSONDecoder().decode(LidState.self, from: data),
+              state.applied else {
+            return
+        }
+        lidActionsApplied = true
+        savedKeyboardBrightness = state.keyboard
+        savedAudioVolume = state.audioVolume
+        savedAudioMuted = state.audioMuted
+        appLog("lid: loaded pending state")
+    }
+
+    private func saveLidState(_ state: LidState) {
+        ensureStateDir()
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        try? data.write(to: URL(fileURLWithPath: lidStatePath), options: .atomic)
+    }
+
+    private func removeLidState() {
+        try? FileManager.default.removeItem(atPath: lidStatePath)
+    }
+
+    private func hasExternalDisplay() -> Bool {
+        var count: UInt32 = 0
+        guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else { return false }
+
+        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+        guard CGGetOnlineDisplayList(count, &ids, &count) == .success else { return false }
+        return ids.prefix(Int(count)).contains { CGDisplayIsBuiltin($0) == 0 }
+    }
+
+    private func userIsActive() -> Bool {
+        let anyInput = CGEventType(rawValue: UInt32.max)!
+        return CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: anyInput) < 30
+    }
+
+    private func runPmsetDisplaySleep() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+        process.arguments = ["displaysleepnow"]
+        do {
+            try process.run()
+            process.waitUntilExit()
+            if process.terminationStatus != 0 {
+                appLog("lid: pmset displaysleepnow failed")
+            }
+        } catch {
+            appLog("lid: could not run pmset: \(error.localizedDescription)")
+        }
+    }
+
     @objc private func toggleBattery() {
         let enabled = FileManager.default.fileExists(atPath: batteryPath)
         if enabled {
@@ -402,6 +623,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
+        restoreLidActionsIfNeeded()
+
         guard FileManager.default.fileExists(atPath: "/usr/local/libexec/macserver-uninstall") else {
             showError("The uninstall script is missing. MacServer may not be installed correctly.")
             return
@@ -423,7 +646,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quit() {
+        restoreLidActionsIfNeeded()
         NSApp.terminate(nil)
+    }
+
+    private func appLog(_ message: String) {
+        NSLog("%@", "MacServer \(message)")
+        ensureStateDir()
+
+        if let attributes = try? FileManager.default.attributesOfItem(atPath: appLogPath),
+           let size = attributes[.size] as? NSNumber,
+           size.intValue > 1_048_576 {
+            try? FileManager.default.removeItem(atPath: appLogPath)
+        }
+
+        let formatter = ISO8601DateFormatter()
+        let line = "\(formatter.string(from: Date())) \(message)\n"
+        guard let data = line.data(using: .utf8) else { return }
+
+        if let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: appLogPath)) {
+            defer { try? handle.close() }
+            do {
+                _ = try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+            } catch {
+                // Logging must never affect the lid actions.
+            }
+        } else {
+            try? data.write(to: URL(fileURLWithPath: appLogPath), options: .atomic)
+        }
     }
 
     private func ensureStateDir() {

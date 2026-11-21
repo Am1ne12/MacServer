@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
-VERSION="${1:-1.1.0}"
+VERSION="${1:-1.2.0}"
 STAGE="$ROOT/dist/dmg"
 DMG="$ROOT/dist/MacServer-$VERSION.dmg"
 

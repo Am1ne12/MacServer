@@ -253,11 +253,11 @@ daemon() {
     set_sleep_disabled "$want" || true
     sleep_disabled=$(sleep_disabled_now)
 
-    # On lid close, turn off the display so macOS locks the session
-    # immediately (the service keeps running in the background).
+    # Lid actions (display sleep, keyboard backlight, audio) are handled by
+    # the menu bar app. It checks for an external display first and leaves a
+    # desk setup alone.
     if [[ "$lid" == "closed" && "$last_lid" != "closed" ]]; then
-      pmset displaysleepnow >/dev/null 2>&1 || true
-      log "lid closed: display off and screen locked"
+      log "lid closed: lid actions delegated to the app"
     fi
 
     # Thermal protection: re-enable sleep; sleep if the lid is closed.
