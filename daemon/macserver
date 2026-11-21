@@ -6,15 +6,22 @@ set -u
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
 
 LABEL="com.am1ne.macserver.daemon"
+WATCHDOG_LABEL="com.am1ne.macserver.watchdog"
 STATE_DIR="/Users/Shared/MacServer"
 PAUSE_FLAG="$STATE_DIR/paused"
 BATTERY_FLAG="$STATE_DIR/keep-awake-battery"
 LOCK_FLAG="$STATE_DIR/lock-now"
+LOWPOWER_FLAG="$STATE_DIR/lowpower-owned"
 STATUS_FILE="$STATE_DIR/status"
 LOG_FILE="/var/log/macserver.log"
 BATTERY_FLOOR=20
+BATTERY_LOWPOWER_THRESHOLD=40
 LOOP_SECONDS=1
 STATUS_HEARTBEAT=5
+WATCHDOG_STALE_SECONDS=60
+
+CURRENT_THERMAL=0
+CURRENT_LOWPOWER=0
 
 log() {
   print -r -- "$(date '+%Y-%m-%d %H:%M:%S') [$$] $*" >> "$LOG_FILE" 2>/dev/null || true
@@ -69,6 +76,66 @@ sleep_disabled_now() {
   print "${v:-0}"
 }
 
+low_power_now() {
+  local v
+  v=$(pmset -g custom 2>/dev/null | awk '
+    /^Battery Power:/ { in_battery = 1; next }
+    /^AC Power:/ { in_battery = 0 }
+    in_battery && /lowpowermode/ { print $2; exit }
+  ')
+  print "${v:-0}"
+}
+
+set_low_power() {
+  local want="$1"
+  local now
+  now=$(low_power_now)
+  if [[ "$now" != "$want" ]]; then
+    if pmset -b lowpowermode "$want" >> "$LOG_FILE" 2>&1; then
+      log "lowpowermode $want applied (was: $now)"
+    else
+      log "ERROR: pmset -b lowpowermode $want failed"
+      return 1
+    fi
+  fi
+  return 0
+}
+
+acquire_low_power() {
+  if [[ ! -e "$LOWPOWER_FLAG" ]]; then
+    : > "$LOWPOWER_FLAG" 2>/dev/null || true
+    chown root:wheel "$LOWPOWER_FLAG" 2>/dev/null || true
+    chmod 644 "$LOWPOWER_FLAG" 2>/dev/null || true
+    log "low power mode requested (battery <= ${BATTERY_LOWPOWER_THRESHOLD}%)"
+  fi
+  set_low_power 1
+  CURRENT_LOWPOWER=1
+}
+
+release_low_power() {
+  if [[ -e "$LOWPOWER_FLAG" ]]; then
+    set_low_power 0
+    rm -f "$LOWPOWER_FLAG" 2>/dev/null || true
+    log "low power mode restored"
+  fi
+  CURRENT_LOWPOWER=0
+}
+
+thermal_critical() {
+  local therm cpu sched
+  therm=$(pmset -g therm 2>/dev/null)
+  cpu=$(print -r -- "$therm" | awk '/CPU_Speed_Limit/ {print $NF; exit}')
+  sched=$(print -r -- "$therm" | awk '/Scheduler_Limit/ {print $NF; exit}')
+
+  if [[ "$cpu" == <-> ]] && (( cpu < 50 )); then
+    return 0
+  fi
+  if [[ "$sched" == <-> ]] && (( sched < 50 )); then
+    return 0
+  fi
+  return 1
+}
+
 set_sleep_disabled() {
   local want="$1"
   local now
@@ -99,6 +166,8 @@ write_status() {
     print "keep_awake_battery=$battery_mode"
     print "battery=$percent"
     print "sleep_disabled=$sleep_disabled"
+    print "thermal=$CURRENT_THERMAL"
+    print "low_power=$CURRENT_LOWPOWER"
     print "timestamp=$(date +%s)"
     print "pid=$$"
   } > "$tmp" 2>/dev/null || return 0
@@ -109,6 +178,9 @@ write_status() {
 cleanup() {
   trap - EXIT INT TERM HUP
   pmset -a disablesleep 0 >/dev/null 2>&1 || true
+  release_low_power
+  CURRENT_THERMAL=0
+  CURRENT_LOWPOWER=0
   local p=0 b=0
   [[ -e "$PAUSE_FLAG" ]] && p=1
   [[ -e "$BATTERY_FLAG" ]] && b=1
@@ -137,8 +209,8 @@ daemon() {
     log "WARNING: screen lock is not immediate"
   fi
 
-  local power lid paused battery_mode percent want sleep_disabled now first
-  local last_power="" last_lid="" last_paused="" last_battery_mode="" last_sleep="" last_write=0
+  local power lid paused battery_mode percent want sleep_disabled now first thermal
+  local last_power="" last_lid="" last_paused="" last_battery_mode="" last_sleep="" last_thermal="" last_write=0
   first=1
 
   while true; do
@@ -155,13 +227,27 @@ daemon() {
     if [[ -e "$BATTERY_FLAG" ]]; then battery_mode=1; else battery_mode=0; fi
     percent=$(battery_percent)
 
+    thermal=0
+    if thermal_critical; then
+      thermal=1
+    fi
+    CURRENT_THERMAL=$thermal
+
     want=0
-    if (( paused == 0 )); then
+    if (( thermal == 1 )); then
+      want=0
+    elif (( paused == 0 )); then
       if [[ "$power" == "AC" ]]; then
         want=1
       elif (( battery_mode == 1 )) && (( percent > BATTERY_FLOOR )); then
         want=1
       fi
+    fi
+
+    if (( thermal == 0 && paused == 0 && battery_mode == 1 )) && [[ "$power" == "BATTERY" ]] && (( percent > BATTERY_FLOOR && percent <= BATTERY_LOWPOWER_THRESHOLD )); then
+      acquire_low_power
+    else
+      release_low_power
     fi
 
     set_sleep_disabled "$want" || true
@@ -174,6 +260,14 @@ daemon() {
       log "lid closed: display off and screen locked"
     fi
 
+    # Thermal protection: re-enable sleep; sleep if the lid is closed.
+    if (( thermal == 1 )); then
+      log "thermal protection active; sleep re-enabled"
+      if [[ "$lid" == "closed" ]]; then
+        pmset sleepnow >/dev/null 2>&1 || true
+      fi
+    fi
+
     # If we just switched back to normal sleep on battery with the lid
     # closed, sleep now to avoid draining the battery.
     if [[ "$power" == "BATTERY" && "$lid" == "closed" && "$want" == "0" ]]; then
@@ -181,18 +275,19 @@ daemon() {
     fi
 
     now=$(date +%s)
-    if (( first == 1 )) || [[ "$power" != "$last_power" || "$lid" != "$last_lid" || "$paused" != "$last_paused" || "$battery_mode" != "$last_battery_mode" || "$sleep_disabled" != "$last_sleep" ]] || (( now - last_write >= STATUS_HEARTBEAT )); then
+    if (( first == 1 )) || [[ "$power" != "$last_power" || "$lid" != "$last_lid" || "$paused" != "$last_paused" || "$battery_mode" != "$last_battery_mode" || "$sleep_disabled" != "$last_sleep" || "$thermal" != "$last_thermal" ]] || (( now - last_write >= STATUS_HEARTBEAT )); then
       write_status "$power" "$lid" "$paused" "$battery_mode" "$percent" "$sleep_disabled"
       last_write=$now
       first=0
     fi
 
-    if [[ "$power" != "$last_power" || "$lid" != "$last_lid" || "$paused" != "$last_paused" || "$battery_mode" != "$last_battery_mode" ]]; then
-      log "state: power=$power lid=$lid paused=$paused battery_mode=$battery_mode battery=${percent}% sleep_disabled=$sleep_disabled"
+    if [[ "$power" != "$last_power" || "$lid" != "$last_lid" || "$paused" != "$last_paused" || "$battery_mode" != "$last_battery_mode" || "$thermal" != "$last_thermal" ]]; then
+      log "state: power=$power lid=$lid paused=$paused battery_mode=$battery_mode battery=${percent}% sleep_disabled=$sleep_disabled thermal=$thermal low_power=$CURRENT_LOWPOWER"
       last_power=$power
       last_lid=$lid
       last_paused=$paused
       last_battery_mode=$battery_mode
+      last_thermal=$thermal
     fi
     last_sleep=$sleep_disabled
 
@@ -200,14 +295,80 @@ daemon() {
   done
 }
 
+watchdog() {
+  ensure_state_dir
+  local power lid paused battery_mode percent sleep_disabled want thermal ts now age
+
+  power=$(power_source)
+  lid=$(lid_state)
+  if [[ -e "$PAUSE_FLAG" ]]; then paused=1; else paused=0; fi
+  if [[ -e "$BATTERY_FLAG" ]]; then battery_mode=1; else battery_mode=0; fi
+  percent=$(battery_percent)
+
+  thermal=0
+  if thermal_critical; then thermal=1; fi
+
+  if ! pgrep -f "/usr/local/bin/macserver daemon" >/dev/null 2>&1; then
+    log "watchdog: main daemon is not running; restoring normal sleep"
+    pmset -a disablesleep 0 >> "$LOG_FILE" 2>&1 || true
+    release_low_power
+    launchctl kickstart -k system/com.am1ne.macserver.daemon 2>/dev/null || true
+    return 0
+  fi
+
+  ts=0
+  if [[ -r "$STATUS_FILE" ]]; then
+    ts=$(awk -F= '/^timestamp=/{print $2; exit}' "$STATUS_FILE" 2>/dev/null)
+  fi
+  now=$(date +%s)
+  age=$(( now - ${ts:-0} ))
+  if (( age > WATCHDOG_STALE_SECONDS )); then
+    log "watchdog: daemon status is stale (${age}s); restoring normal sleep"
+    pmset -a disablesleep 0 >> "$LOG_FILE" 2>&1 || true
+    release_low_power
+    launchctl kickstart -k system/com.am1ne.macserver.daemon 2>/dev/null || true
+    return 0
+  fi
+
+  want=0
+  if (( thermal == 0 && paused == 0 )); then
+    if [[ "$power" == "AC" ]]; then
+      want=1
+    elif (( battery_mode == 1 )) && (( percent > BATTERY_FLOOR )); then
+      want=1
+    fi
+  fi
+
+  sleep_disabled=$(sleep_disabled_now)
+  if [[ "$sleep_disabled" != "$want" ]]; then
+    log "watchdog: correcting disablesleep $sleep_disabled -> $want"
+    pmset -a disablesleep "$want" >> "$LOG_FILE" 2>&1 || true
+  fi
+
+  if [[ "$lid" == "closed" ]] && { (( thermal == 1 )) || [[ "$power" == "BATTERY" && "$want" == "0" ]]; }; then
+    pmset sleepnow >/dev/null 2>&1 || true
+  fi
+
+  if (( thermal == 0 && paused == 0 && battery_mode == 1 )) && [[ "$power" == "BATTERY" ]] && (( percent > BATTERY_FLOOR && percent <= BATTERY_LOWPOWER_THRESHOLD )); then
+    acquire_low_power
+  else
+    release_low_power
+  fi
+
+  return 0
+}
+
 status_cmd() {
-  local power lid percent disabled paused battery_mode
+  local power lid percent disabled paused battery_mode thermal lowpower
   power=$(power_source)
   lid=$(lid_state)
   percent=$(battery_percent)
   disabled=$(sleep_disabled_now)
+  lowpower=$(low_power_now)
   if [[ -e "$PAUSE_FLAG" ]]; then paused=1; else paused=0; fi
   if [[ -e "$BATTERY_FLAG" ]]; then battery_mode=1; else battery_mode=0; fi
+  thermal=0
+  if thermal_critical; then thermal=1; fi
 
   print "MacServer"
   print "  Power source      : $power"
@@ -216,6 +377,8 @@ status_cmd() {
   print "  Sleep disabled    : $disabled"
   print "  Paused            : $paused"
   print "  Battery mode      : $battery_mode (stop at ${BATTERY_FLOOR}%)"
+  print "  Thermal protection: $thermal"
+  print "  Low power mode    : $lowpower"
 
   if pgrep -f "/usr/local/bin/macserver daemon" >/dev/null 2>&1; then
     print "  Service           : active"
@@ -268,9 +431,35 @@ battery_cmd() {
   esac
 }
 
+compact_cmd() {
+  local mode="${1:-}"
+  case "$mode" in
+    on)
+      mkdir -p "$STATE_DIR" 2>/dev/null || true
+      if : > "$STATE_DIR/compact" 2>/dev/null; then
+        print "Compact menu bar icon enabled."
+      else
+        print "Could not write the compact flag." >&2
+        exit 1
+      fi
+      ;;
+    off)
+      rm -f "$STATE_DIR/compact" 2>/dev/null || true
+      print "Compact menu bar icon disabled."
+      ;;
+    *)
+      print "Usage: macserver compact on|off" >&2
+      exit 1
+      ;;
+  esac
+}
+
 case "${1:-}" in
   daemon)
     daemon
+    ;;
+  watchdog)
+    watchdog
     ;;
   status)
     status_cmd
@@ -285,6 +474,10 @@ case "${1:-}" in
     shift
     battery_cmd "${1:-}"
     ;;
+  compact)
+    shift
+    compact_cmd "${1:-}"
+    ;;
   uninstall)
     if [[ $EUID -ne 0 ]]; then
       print "Uninstall requires sudo." >&2
@@ -293,7 +486,7 @@ case "${1:-}" in
     exec /usr/local/libexec/macserver-uninstall
     ;;
   *)
-    print "Usage: macserver {daemon|status|pause|resume|battery on|off|uninstall}" >&2
+    print "Usage: macserver {daemon|watchdog|status|pause|resume|battery on|off|compact on|off|uninstall}" >&2
     exit 1
     ;;
 esac

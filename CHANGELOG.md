@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-11-21
+
+- Added an install skill for coding agents and SHA-256 verification for releases.
+- Added a recovery watchdog LaunchDaemon that restores normal sleep and restarts the service if the main daemon dies or its status becomes stale.
+- Added Low Power Mode below 40% in battery server mode, with automatic restoration.
+- Added best-effort thermal protection: if macOS reports critical thermal pressure, sleep is re-enabled.
+- Added a compact menu bar icon mode and `macserver compact on|off`.
+- Added a "Thermal Protection" icon state and low-power status in the menu.
+
 ## 1.0.0 — 2026-11-17
 
 First public release.

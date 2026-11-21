@@ -9,12 +9,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let pausePath = "/Users/Shared/MacServer/paused"
     private let batteryPath = "/Users/Shared/MacServer/keep-awake-battery"
     private let lockPath = "/Users/Shared/MacServer/lock-now"
+    private let compactPath = "/Users/Shared/MacServer/compact"
     private let logPath = "/var/log/macserver.log"
 
     private var statusMenuItem: NSMenuItem!
     private var detailMenuItem: NSMenuItem!
     private var pauseMenuItem: NSMenuItem!
     private var batteryMenuItem: NSMenuItem!
+    private var compactMenuItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -77,6 +79,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         batteryMenuItem.toolTip = "Keeps the Mac awake on battery until 20%. It will drain the battery and get warm."
         menu.addItem(batteryMenuItem)
 
+        compactMenuItem = NSMenuItem(
+            title: "Compact Menu Bar Icon",
+            action: #selector(toggleCompact),
+            keyEquivalent: ""
+        )
+        compactMenuItem.target = self
+        menu.addItem(compactMenuItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let lockItem = NSMenuItem(
@@ -123,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pausedFlag = FileManager.default.fileExists(atPath: pausePath)
         let batteryFlag = FileManager.default.fileExists(atPath: batteryPath)
         batteryMenuItem.state = batteryFlag ? .on : .off
+        compactMenuItem.state = FileManager.default.fileExists(atPath: compactPath) ? .on : .off
 
         guard let raw = try? String(contentsOfFile: statusPath, encoding: .utf8) else {
             pauseMenuItem.isHidden = true
@@ -148,6 +159,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let sleepDisabled = values["sleep_disabled"] == "1"
         let pausedStatus = values["paused"] == "1"
         let batteryModeStatus = values["keep_awake_battery"] == "1"
+        let thermal = values["thermal"] == "1"
+        let lowPower = values["low_power"] == "1"
         let battery = values["battery"] ?? "?"
         let timestamp = Double(values["timestamp"] ?? "0") ?? 0
         let age = Date().timeIntervalSince1970 - timestamp
@@ -169,6 +182,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             (power == "BATTERY" && (batteryModeStatus || batteryFlag))
         )
         pauseMenuItem.isHidden = !(serverActive || pausedStatus || pausedFlag)
+
+        if thermal {
+            pauseMenuItem.isHidden = true
+            applyState(
+                icon: "exclamationmark",
+                color: .systemRed,
+                title: "Thermal Protection",
+                detail: "Sleep was re-enabled because the Mac is too hot.",
+                paused: false
+            )
+            return
+        }
 
         if pausedStatus || pausedFlag {
             applyState(
@@ -202,7 +227,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     icon: "bolt.fill",
                     color: .systemOrange,
                     title: "Server — Battery \(battery)%",
-                    detail: "Awake on battery until 20%.",
+                    detail: lowPower
+                        ? "Awake on battery until 20%. Low Power Mode is on."
+                        : "Awake on battery until 20%.",
                     paused: false
                 )
             } else if !sleepDisabled {
@@ -244,16 +271,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func makeStatusImage(color: NSColor, symbol: String) -> NSImage {
-        let size = NSSize(width: 22, height: 22)
+        let compact = FileManager.default.fileExists(atPath: compactPath)
+        let side: CGFloat = compact ? 16 : 22
+        let size = NSSize(width: side, height: side)
         let bounds = NSRect(origin: .zero, size: size)
+        let backgroundInset: CGFloat = compact ? 0.5 : 1
+        let cornerRadius: CGFloat = compact ? 4 : 5
+        let symbolInset: CGFloat = compact ? 3.5 : 5
+        let fontSize: CGFloat = compact ? 9 : 12
         let image = NSImage(size: size)
 
         image.lockFocus()
         color.setFill()
         NSBezierPath(
-            roundedRect: bounds.insetBy(dx: 1, dy: 1),
-            xRadius: 5,
-            yRadius: 5
+            roundedRect: bounds.insetBy(dx: backgroundInset, dy: backgroundInset),
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
         ).fill()
 
         if let base = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
@@ -261,7 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let configured = base.withSymbolConfiguration(config) ?? base
             configured.isTemplate = false
             configured.draw(
-                in: bounds.insetBy(dx: 5, dy: 5),
+                in: bounds.insetBy(dx: symbolInset, dy: symbolInset),
                 from: .zero,
                 operation: .sourceOver,
                 fraction: 1.0
@@ -276,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             let attributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 12),
+                .font: NSFont.boldSystemFont(ofSize: fontSize),
                 .foregroundColor: NSColor.white
             ]
             let text = NSAttributedString(string: fallback, attributes: attributes)
@@ -290,6 +323,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         image.unlockFocus()
         image.isTemplate = false
         return image
+    }
+
+    @objc private func toggleCompact() {
+        let enabled = FileManager.default.fileExists(atPath: compactPath)
+        if enabled {
+            try? FileManager.default.removeItem(atPath: compactPath)
+        } else {
+            ensureStateDir()
+            if !FileManager.default.createFile(atPath: compactPath, contents: Data()) {
+                showError("Could not enable the compact menu bar icon.")
+            }
+        }
+        refresh()
     }
 
     @objc private func togglePause() {

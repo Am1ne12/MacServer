@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.1.0}"
 STAGE="$ROOT/dist/dmg"
 DMG="$ROOT/dist/MacServer-$VERSION.dmg"
 
@@ -22,6 +22,7 @@ ditto "$ROOT/build/MacServer.app" "$STAGE/MacServer.app"
 cp "$ROOT/daemon/macserver" "$STAGE/.installer/macserver"
 cp "$ROOT/daemon/macserver-uninstall" "$STAGE/.installer/macserver-uninstall"
 cp "$ROOT/daemon/com.am1ne.macserver.daemon.plist" "$STAGE/.installer/"
+cp "$ROOT/daemon/com.am1ne.macserver.watchdog.plist" "$STAGE/.installer/"
 cp "$ROOT/app/com.am1ne.macserver.app.plist" "$STAGE/.installer/"
 cp "$ROOT/scripts/install-from-dmg.sh" "$STAGE/.installer/install.sh"
 chmod 0755 "$STAGE/.installer/install.sh" \
@@ -45,7 +46,7 @@ echo
 EOF
 chmod 0755 "$STAGE/Install MacServer.command"
 
-cat > "$STAGE/Read Me.txt" <<'EOF'
+cat > "$STAGE/Read Me.txt" <<EOF
 MacServer — Installation
 ========================
 
@@ -54,12 +55,15 @@ MacServer — Installation
 3. The MacServer icon appears in the menu bar.
 
 If macOS blocks the installer:
-- Right-click "Install MacServer.command" > Open.
-- Or System Settings > Privacy & Security > "Open Anyway".
+- Open System Settings > Privacy & Security > "Open Anyway".
+- Or run the installer directly from Terminal:
+  cd "/Volumes/MacServer $VERSION"
+  sudo .installer/install.sh
 
 MacServer installs:
 - /Applications/MacServer.app
 - a background service (LaunchDaemon)
+- a recovery watchdog
 - the /usr/local/bin/macserver command
 
 Uninstall:
@@ -79,9 +83,12 @@ hdiutil create \
     -format UDZO \
     "$DMG"
 
+(cd "$ROOT/dist" && shasum -a 256 "MacServer-$VERSION.dmg" > SHA256SUMS)
+
 echo
 echo "DMG: $DMG"
-shasum -a 256 "$DMG"
+echo "SHA256SUMS: $ROOT/dist/SHA256SUMS"
+cat "$ROOT/dist/SHA256SUMS"
 echo
 echo "To test:"
 echo "  hdiutil attach \"$DMG\""

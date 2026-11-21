@@ -19,6 +19,7 @@ fi
 
 echo "Stopping service..."
 launchctl bootout system/com.am1ne.macserver.daemon 2>/dev/null || true
+launchctl bootout system/com.am1ne.macserver.watchdog 2>/dev/null || true
 
 if [[ -n "$CONSOLE_UID" ]]; then
     launchctl bootout "gui/$CONSOLE_UID/com.am1ne.macserver.app" 2>/dev/null || true
@@ -29,9 +30,13 @@ fi
 echo "Restoring normal macOS sleep..."
 pmset -a disablesleep 0 2>/dev/null || true
 pmset -a acwake 0 2>/dev/null || true
+if [[ -e /Users/Shared/MacServer/lowpower-owned ]]; then
+    pmset -b lowpowermode 0 2>/dev/null || true
+fi
 
 echo "Removing files..."
 rm -f /Library/LaunchDaemons/com.am1ne.macserver.daemon.plist
+rm -f /Library/LaunchDaemons/com.am1ne.macserver.watchdog.plist
 rm -f /usr/local/bin/macserver
 rm -rf /Applications/MacServer.app
 rm -rf /Users/Shared/MacServer

@@ -41,6 +41,7 @@ echo
 
 echo "== Stopping previous version =="
 launchctl bootout system/com.am1ne.macserver.daemon 2>/dev/null || true
+launchctl bootout system/com.am1ne.macserver.watchdog 2>/dev/null || true
 launchctl bootout "gui/$TARGET_UID/com.am1ne.macserver.app" 2>/dev/null || true
 launchctl asuser "$TARGET_UID" osascript -e 'tell application "MacServer" to quit' 2>/dev/null || true
 pkill -x MacServer 2>/dev/null || true
@@ -62,6 +63,9 @@ install -m 0755 -o root -g wheel "$SCRIPT_DIR/macserver-uninstall" /usr/local/li
 install -m 0644 -o root -g wheel \
     "$SCRIPT_DIR/com.am1ne.macserver.daemon.plist" \
     /Library/LaunchDaemons/com.am1ne.macserver.daemon.plist
+install -m 0644 -o root -g wheel \
+    "$SCRIPT_DIR/com.am1ne.macserver.watchdog.plist" \
+    /Library/LaunchDaemons/com.am1ne.macserver.watchdog.plist
 
 mkdir -p /Users/Shared/MacServer
 chown root:staff /Users/Shared/MacServer
@@ -105,6 +109,32 @@ fi
 
 launchctl enable system/com.am1ne.macserver.daemon 2>/dev/null || true
 launchctl kickstart -k system/com.am1ne.macserver.daemon 2>/dev/null || true
+
+echo "== Starting watchdog =="
+for _ in {1..20}; do
+    if ! launchctl print system/com.am1ne.macserver.watchdog >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.2
+done
+sleep 0.5
+
+WATCHDOG_BOOTSTRAPPED=0
+for attempt in 1 2 3; do
+    if launchctl bootstrap system /Library/LaunchDaemons/com.am1ne.macserver.watchdog.plist 2>/dev/null; then
+        WATCHDOG_BOOTSTRAPPED=1
+        break
+    fi
+    echo "  loading watchdog: attempt $attempt failed, retrying..."
+    sleep 2
+done
+
+if [[ "$WATCHDOG_BOOTSTRAPPED" -ne 1 ]]; then
+    echo "  WARNING: could not load the watchdog. The main service is still running."
+else
+    launchctl enable system/com.am1ne.macserver.watchdog 2>/dev/null || true
+    launchctl kickstart -k system/com.am1ne.macserver.watchdog 2>/dev/null || true
+fi
 
 echo "== Installing menu bar icon =="
 mkdir -p "$TARGET_HOME/Library/LaunchAgents"
